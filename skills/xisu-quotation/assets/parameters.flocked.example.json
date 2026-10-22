@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "is_demo": true,
+  "notice": "虚构的植绒成品片材教学参数，成品采购价与等效比重已按本例裸基材厚度配套给定；不含内部生产核价。实际价格、比重及含税系数须使用者提供。",
+  "currency": "CNY",
+  "machine": {
+    "max_length_cm": 126,
+    "max_width_cm": 76,
+    "total_edge_length_cm": 4,
+    "total_edge_width_cm": 4,
+    "gap_cm": 0
+  },
+  "materials": [
+    {
+      "material": "PET植绒",
+      "color": "教学紫",
+      "price_per_kg": 12.3,
+      "density_g_cm3": 1.55,
+      "price_date": "2026-10-22",
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "purchase_basis": "finished_sheet",
+      "density_reference_substrate_thickness_mm": 0.5,
+      "density_basis": "虚构教学配套：1.55为对应裸基材0.50mm的成品片材等效比重；不由内部胶绒公式推导"
+    }
+  ],
+  "processing_tiers": [
+    {
+      "min_cavities": 1,
+      "max_cavities": 10,
+      "surcharge_per_sheet": 0
+    },
+    {
+      "min_cavities": 11,
+      "max_cavities": 25,
+      "surcharge_per_sheet": 0.2
+    },
+    {
+      "min_cavities": 26,
+      "max_cavities": 36,
+      "surcharge_per_sheet": 0.4
+    },
+    {
+      "min_cavities": 37,
+      "max_cavities": 50,
+      "surcharge_per_sheet": 0.9
+    },
+    {
+      "min_cavities": 51,
+      "max_cavities": 70,
+      "surcharge_per_sheet": 1.1
+    },
+    {
+      "min_cavities": 71,
+      "max_cavities": 100,
+      "surcharge_per_sheet": 1.4
+    }
+  ],
+  "small_order_tiers": [
+    {
+      "min_sheets_inclusive": 0,
+      "max_sheets_exclusive": 500,
+      "fee": 500
+    },
+    {
+      "min_sheets_inclusive": 500,
+      "max_sheets_exclusive": 1000,
+      "fee": 300
+    },
+    {
+      "min_sheets_inclusive": 1000,
+      "max_sheets_exclusive": null,
+      "fee": 0
+    }
+  ],
+  "tax_multiplier": 1.1,
+  "default_extra_margin_rate": 0,
+  "minimum_margin_rate": null,
+  "allow_preliminary_male_mold_default": true,
+  "allow_height_based_estimate": false
+}

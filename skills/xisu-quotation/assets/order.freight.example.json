@@ -1,0 +1,30 @@
+{
+  "is_demo": true,
+  "notice": "虚构体积运费教学订单。每箱700个，末箱不足仍计一箱，运价为教学值。",
+  "shape": "rectangle",
+  "length_cm": 20,
+  "width_cm": 15,
+  "height_cm": 3,
+  "mold_type": "female",
+  "total_bleed_cm": 1,
+  "material": "PET",
+  "color": "灰色",
+  "quantity": 6000,
+  "measured_thickness_mm": 0.5,
+  "defect_rate": 0,
+  "extra_margin_rate": 0,
+  "tax_included": true,
+  "pass_through": {
+    "mold_fee": 300,
+    "packaging_fee": 120,
+    "other_fee": 0,
+    "freight": {
+      "mode": "volume",
+      "pieces_per_box": 700,
+      "carton_length_cm": 50,
+      "carton_width_cm": 40,
+      "carton_height_cm": 30,
+      "rate_per_m3": 150
+    }
+  }
+}

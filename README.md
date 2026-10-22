@@ -2,7 +2,7 @@
 
 把吸塑产品的尺寸、材料、订单数量和工厂参数，整理成可复核的排版与报价过程。
 
-适用于 PET、PET 透明、PS、PVC、PP、已核准成品参数的植绒片材，以及按平方米计价的植布。面向吸塑厂业务员、报价人员和开发报价工具的使用者。
+适用于 PET、PET 透明、触感PET、镀金PET、PS、PVC、PP、已核准成品参数的植绒片材，以及按平方米计价的植布。面向吸塑厂业务员、报价人员和开发报价工具的使用者。
 
 **这是一个规则型 AI Skill。** 它提供报价流程、计算公式、参数模板和教学算例；使用时由具备文件读取及计算工具的 AI 助手执行核算。仓库没有独立算价程序、网页或机器人服务。
 
@@ -45,12 +45,14 @@
 |---|---|
 | 机器最大片材 | 126×76 cm；每方向总边料4 cm；间距0 cm |
 | 阴模总出血 | 长、宽各总加1 cm |
-| 基础加工费，元/张 | PVC 1.20；PS/PET/PP 1.00；PET透明0.60；PVC/PS/PET植绒1.50 |
+| 基础加工费，元/张 | PVC 1.20；PS/PET/PP 1.00；PET透明0.60；触感PET/镀金PET/PVC植绒/PS植绒/PET植绒1.50 |
 | 穴数档位 | 1–10 / 11–25 / 26–36 / 37–50 / 51–70 / 71–100 |
 | 对应加工费档差，元/张 | +0 / +0.20 / +0.40 / +0.90 / +1.10 / +1.40 |
 | 小单费，整单一次 | 数量÷穴数<500张收500元；500至不足1000张收300元；1000张起免收 |
 
 每张加工费＝材料基础费＋穴数档差。小单张数不取整、不加不良率。使用者可用自己的有效配置覆盖这些参考值。
+
+触感PET、镀金PET分别登记参考比重1.40和起步加工费1.50元/张；实测厚度优先，净重可反推，缺厚度和净重时按PET高度估厚并取最近5丝档。它们不继承普通PET采购价或起步加工费。
 
 ## 植布也已包含
 
@@ -111,6 +113,24 @@ assets/parameters.cloth.example.json 和 assets/order.cloth.example.json，
 
 已有安装需要更新整个技能目录；更新前保留自己的私有配置，不要覆盖自填价格。
 
+## 植绒成品与体积运费教学试跑
+
+在AI助手中发送以下任一段，读取路径均相对于技能安装目录：
+
+```text
+使用 xisu-quotation，成套读取 assets/parameters.flocked.example.json 和 assets/order.flocked.example.json，
+按 references/calculation-rules.md 用实际计算工具核算，对照 references/examples.md 第9节，保持演示及待复核状态。
+```
+
+植绒成品预期：未税0.6171元/个、3702.60元/单；含税0.6688元/个、4012.80元/单。成品价和等效比重仅为本例给定，不含内部生产核价。
+
+```text
+使用 xisu-quotation，成套读取 assets/parameters.freight.example.json 和 assets/order.freight.example.json，
+用实际计算工具核算，展示箱数、体积、运费和整单报价，对照 references/examples.md 第10节。保留演示及待复核状态。
+```
+
+体积运费预期：9箱、81.00元运费；未税0.4183元/个、2509.80元/单；含税0.4518元/个、2710.80元/单。教学价格和1.10含税系数不能用于真实订单。
+
 ## 目录
 
 | 文件 | 用途 |
@@ -124,6 +144,8 @@ assets/parameters.cloth.example.json 和 assets/order.cloth.example.json，
 | `skills/xisu-quotation/references/cloth-rules.md` | 植布完整算法与输入约束 |
 | `skills/xisu-quotation/assets/parameters.cloth.example.json` | 植布成套教学参数 |
 | `skills/xisu-quotation/assets/order.cloth.example.json` | 植布教学订单，验证默认阴模 |
+| `skills/xisu-quotation/assets/parameters.flocked.example.json` / `skills/xisu-quotation/assets/order.flocked.example.json` | 已配套植绒成品片材参数与订单 |
+| `skills/xisu-quotation/assets/parameters.freight.example.json` / `skills/xisu-quotation/assets/order.freight.example.json` | 完整体积运费参数与订单 |
 
 ## 适用范围与计算边界
 

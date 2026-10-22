@@ -90,6 +90,28 @@
       "price_confirmed": false,
       "processing_base_per_sheet": 1.5,
       "density_basis": "植绒等效比重，须与本单裸基材厚度配套核准后填写"
+    },
+    {
+      "material": "触感PET",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.4,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "thickness_estimation_category": "PET",
+      "density_basis": "普通参考密度；实测厚度优先，净重可反推，缺厚度和净重时按PET高度规则估算"
+    },
+    {
+      "material": "镀金PET",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.4,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "thickness_estimation_category": "PET",
+      "density_basis": "普通参考密度；实测厚度优先，净重可反推，缺厚度和净重时按PET高度规则估算"
     }
   ],
   "processing_tiers": [
@@ -148,7 +170,7 @@
   "allow_height_based_estimate": true,
   "profile_version": "2026-10-22",
   "is_demo": false,
-  "source_note": "作者2026-10-14定稿的高速吸塑报价规则；收费与设备数值经作者授权公开。",
+  "source_note": "作者2026-10-14高速吸塑报价规则及2026-10-22植布、触感PET和镀金PET补充；设备与收费数值经作者授权公开。",
   "female_total_bleed_cm": 1,
   "cloth": {
     "material": "植布",
