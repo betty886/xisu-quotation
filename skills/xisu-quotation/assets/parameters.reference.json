@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "profile_type": "public_reference_rules",
+  "notice": "公开参考收费与机器参数，可由使用者覆盖；采购价、颜色、价格日期和含税系数须自行填写。未补齐及复核前不得作为正式报价。",
+  "currency": "CNY",
+  "machine": {
+    "max_length_cm": 126,
+    "max_width_cm": 76,
+    "total_edge_length_cm": 4,
+    "total_edge_width_cm": 4,
+    "gap_cm": 0
+  },
+  "materials": [
+    {
+      "material": "PVC",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.4,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.2,
+      "density_basis": "原规则参考密度，实际材料适用性须由使用者核对"
+    },
+    {
+      "material": "PS",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.1,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.0,
+      "density_basis": "原规则参考密度，实际材料适用性须由使用者核对"
+    },
+    {
+      "material": "PET",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.4,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.0,
+      "density_basis": "原规则参考密度，实际材料适用性须由使用者核对"
+    },
+    {
+      "material": "PET透明",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 1.4,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 0.6,
+      "density_basis": "原规则参考密度，实际材料适用性须由使用者核对"
+    },
+    {
+      "material": "PP",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": 0.92,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.0,
+      "density_basis": "原规则参考密度，实际材料适用性须由使用者核对"
+    },
+    {
+      "material": "PVC植绒",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": null,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "density_basis": "植绒等效比重，须与本单裸基材厚度配套核准后填写"
+    },
+    {
+      "material": "PS植绒",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": null,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "density_basis": "植绒等效比重，须与本单裸基材厚度配套核准后填写"
+    },
+    {
+      "material": "PET植绒",
+      "color": null,
+      "price_per_kg": null,
+      "density_g_cm3": null,
+      "price_date": null,
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.5,
+      "density_basis": "植绒等效比重，须与本单裸基材厚度配套核准后填写"
+    }
+  ],
+  "processing_tiers": [
+    {
+      "min_cavities": 1,
+      "max_cavities": 10,
+      "surcharge_per_sheet": 0
+    },
+    {
+      "min_cavities": 11,
+      "max_cavities": 25,
+      "surcharge_per_sheet": 0.2
+    },
+    {
+      "min_cavities": 26,
+      "max_cavities": 36,
+      "surcharge_per_sheet": 0.4
+    },
+    {
+      "min_cavities": 37,
+      "max_cavities": 50,
+      "surcharge_per_sheet": 0.9
+    },
+    {
+      "min_cavities": 51,
+      "max_cavities": 70,
+      "surcharge_per_sheet": 1.1
+    },
+    {
+      "min_cavities": 71,
+      "max_cavities": 100,
+      "surcharge_per_sheet": 1.4
+    }
+  ],
+  "small_order_tiers": [
+    {
+      "min_sheets_inclusive": 0,
+      "max_sheets_exclusive": 500,
+      "fee": 500
+    },
+    {
+      "min_sheets_inclusive": 500,
+      "max_sheets_exclusive": 1000,
+      "fee": 300
+    },
+    {
+      "min_sheets_inclusive": 1000,
+      "max_sheets_exclusive": null,
+      "fee": 0
+    }
+  ],
+  "tax_multiplier": null,
+  "default_extra_margin_rate": 0,
+  "minimum_margin_rate": null,
+  "allow_preliminary_male_mold_default": true,
+  "allow_height_based_estimate": true,
+  "profile_version": "2026-10-22",
+  "is_demo": false,
+  "source_note": "作者2026-10-14定稿的高速吸塑报价规则；收费与设备数值经作者授权公开。",
+  "female_total_bleed_cm": 1
+}

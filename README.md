@@ -19,7 +19,7 @@
 
 ### Codex
 
-发布后，可以让 Codex 的技能安装器从本仓库安装 `skills/xisu-quotation`：
+可以让 Codex 的技能安装器从本仓库安装 `skills/xisu-quotation`：
 
 ```text
 使用 $skill-installer，从 GitHub 仓库 betty886/xisu-quotation 安装 skills/xisu-quotation。
@@ -37,9 +37,27 @@
 
 可以阅读并提供 `SKILL.md` 和 `references/calculation-rules.md` 作为核算说明。若没有实际计算工具，应由人工或外部计算器复核金额；不要把文字推演当作已经运行过的程序结果。
 
-## 先填写自己的工厂参数
+## 已内置完整收费与设备数值
 
-`assets/parameters.example.json` 与 `assets/order.example.json` 只用于教学。它们使用虚构参数，`is_demo` 为 `true`，不得直接作为实际订单的采购价、加工费或税务口径。
+不用再手工提供小单费、基础加工费和穴数档差。使用者未提供自有配置时，技能采用 [公开参考配置](skills/xisu-quotation/assets/parameters.reference.json)，并在结果中注明来源。
+
+| 项目 | 公开参考数值 |
+|---|---|
+| 机器最大片材 | 126×76 cm；每方向总边料4 cm；间距0 cm |
+| 阴模总出血 | 长、宽各总加1 cm |
+| 基础加工费，元/张 | PVC 1.20；PS/PET/PP 1.00；PET透明0.60；PVC/PS/PET植绒1.50 |
+| 穴数档位 | 1–10 / 11–25 / 26–36 / 37–50 / 51–70 / 71–100 |
+| 对应加工费档差，元/张 | +0 / +0.20 / +0.40 / +0.90 / +1.10 / +1.40 |
+| 小单费，整单一次 | 数量÷穴数<500张收500元；500至不足1000张收300元；1000张起免收 |
+
+每张加工费＝材料基础费＋穴数档差。小单张数不取整、不加不良率。使用者可用自己的有效配置覆盖这些参考值。
+
+## 先填写自己的采购参数
+
+实际报价从 `assets/parameters.reference.json` 复制到私有目录：选择本单材料，填写颜色、采购价、价格日期和含税系数，并核对密度。植绒须提供与本单裸片厚度配套的成品价和等效比重。
+采购价与含税系数保留 null，必须由使用者填写，不提供通用税率或企业采购价。
+
+`assets/parameters.example.json` 与 `assets/order.example.json` 用于教学：机器和收费与公开参考配置一致，采购价7.50、含税系数1.10及订单为虚构教学数据，`is_demo: true`、`price_confirmed: false` 保持不变。
 
 真实使用前，在自己的私有目录保存配置副本，并确认：
 
@@ -48,7 +66,7 @@
 | 材料与颜色 | 精确匹配，不能借用其他材料或颜色的价格 |
 | 材料价格、密度、价格日期 | 按本厂当前采购和核准资料填写 |
 | 机器规格、边料和间距 | 使用当前设备与工艺参数 |
-| 加工费、小单费 | 使用本厂收费规则，金额与档位均可配置 |
+| 加工费、小单费 | 可直接采用公开参考规则，也可提供本厂规则覆盖 |
 | 含税系数 | 商业报价参数，须明确提供；本仓库不设通用税率 |
 | 不良率、毛利率 | 用小数表示，例如 `0.03` 表示 3% |
 | 包装、运费、模具等 | 明确按本规则原额转收，整单只计一次 |
@@ -59,7 +77,8 @@
 
 ```text
 用 $xisu-quotation 核算这张订单。
-先读取我提供的工厂配置和订单文件，确认单位与价格日期。
+先读取技能内置的 parameters.reference.json；我没另给收费配置时采用公开参考收费。
+读取我提供的订单、材料采购价和含税系数，列出仍缺少的具体输入。
 请展示两种排版方向、材料和加工费用、小单费、原额转收费用及取整前后的单价。
 所有采用的默认值和估算都要写明，结果交由我复核。
 ```
@@ -67,10 +86,14 @@
 试跑教学示例：
 
 ```text
-用 $xisu-quotation 按 skills/xisu-quotation/assets/parameters.example.json
-和 skills/xisu-quotation/assets/order.example.json 执行教学核算，
-并对照 skills/xisu-quotation/references/examples.md 检查结果。
+用 $xisu-quotation 读取技能安装目录下 assets/parameters.example.json
+和 assets/order.example.json，使用实际计算工具执行教学核算，
+并对照 references/examples.md 检查结果，保留演示和待复核状态。
 ```
+
+本版教学预期：旋转方向21穴，片材116×67 cm，连续计价285.714285…张，备料286张；未税0.4348元/个、2608.80元/单；含税0.4683元/个、2809.80元/单。收费更新后，旧版0.4301/0.4631不再适用。
+
+已有安装需要更新整个技能目录；更新前保留自己的私有配置，不要覆盖自填价格。
 
 ## 目录
 
@@ -79,7 +102,8 @@
 | `skills/xisu-quotation/SKILL.md` | AI 助手的执行顺序与输入检查 |
 | `skills/xisu-quotation/references/calculation-rules.md` | 可复核的完整计算规则 |
 | `skills/xisu-quotation/references/examples.md` | 虚构教学算例和容易出错的边界 |
-| `skills/xisu-quotation/assets/parameters.example.json` | 工厂参数格式示例 |
+| `skills/xisu-quotation/assets/parameters.reference.json` | 完整公开收费与机器参数；采购价、含税系数待填 |
+| `skills/xisu-quotation/assets/parameters.example.json` | 使用公开收费的教学配置，含虚构采购价及含税系数 |
 | `skills/xisu-quotation/assets/order.example.json` | 订单输入格式示例 |
 
 ## 适用范围与计算边界
