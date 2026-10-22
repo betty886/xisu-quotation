@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "is_demo": true,
+  "notice": "植布教学配置：16元/平方米与含税系数1.10仅为虚构教学输入；实际采购价及含税系数须由使用者提供。",
+  "currency": "CNY",
+  "machine": {
+    "max_length_cm": 126,
+    "max_width_cm": 76,
+    "total_edge_length_cm": 4,
+    "total_edge_width_cm": 4,
+    "gap_cm": 0
+  },
+  "female_total_bleed_cm": 1,
+  "cloth": {
+    "material": "植布",
+    "color": "教学色",
+    "price_unit": "CNY/m2",
+    "price_per_m2": 16,
+    "price_date": "2026-10-22",
+    "price_confirmed": false,
+    "processing_per_sheet": 3,
+    "max_sheet_length_cm": 110,
+    "max_sheet_width_cm": 70,
+    "allow_rotation": false,
+    "default_mold_type": "female"
+  },
+  "small_order_tiers": [
+    {
+      "min_sheets_inclusive": 0,
+      "max_sheets_exclusive": 500,
+      "fee": 500
+    },
+    {
+      "min_sheets_inclusive": 500,
+      "max_sheets_exclusive": 1000,
+      "fee": 300
+    },
+    {
+      "min_sheets_inclusive": 1000,
+      "max_sheets_exclusive": null,
+      "fee": 0
+    }
+  ],
+  "tax_multiplier": 1.1,
+  "default_extra_margin_rate": 0,
+  "minimum_margin_rate": null
+}

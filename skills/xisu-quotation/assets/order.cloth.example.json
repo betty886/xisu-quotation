@@ -1,0 +1,25 @@
+{
+  "is_demo": true,
+  "notice": "虚构植布教学订单，无真实客户；模具留空用于验证默认阴模并保留待复核。",
+  "shape": "rectangle",
+  "length_cm": 35,
+  "width_cm": 15,
+  "height_cm": 1,
+  "material": "植布",
+  "color": "教学色",
+  "mold_type": null,
+  "total_bleed_cm": 1,
+  "quantity": 10000,
+  "defect_rate": 0,
+  "extra_margin_rate": 0,
+  "tax_included": true,
+  "pass_through": {
+    "mold_fee": 0,
+    "packaging_fee": 0,
+    "other_fee": 0,
+    "freight": {
+      "mode": "manual",
+      "amount": 0
+    }
+  }
+}

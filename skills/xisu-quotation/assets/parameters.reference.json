@@ -149,5 +149,18 @@
   "profile_version": "2026-10-22",
   "is_demo": false,
   "source_note": "作者2026-10-14定稿的高速吸塑报价规则；收费与设备数值经作者授权公开。",
-  "female_total_bleed_cm": 1
+  "female_total_bleed_cm": 1,
+  "cloth": {
+    "material": "植布",
+    "color": null,
+    "price_unit": "CNY/m2",
+    "price_per_m2": null,
+    "price_date": null,
+    "price_confirmed": false,
+    "processing_per_sheet": 3,
+    "max_sheet_length_cm": 110,
+    "max_sheet_width_cm": 70,
+    "allow_rotation": false,
+    "default_mold_type": "female"
+  }
 }
