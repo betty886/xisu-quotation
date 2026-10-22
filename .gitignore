@@ -1,0 +1,17 @@
+# Private inputs and outputs
+private/
+*.local.json
+*.local.csv
+quotes/
+outputs/
+
+# Credentials and machine state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
+__pycache__/
+

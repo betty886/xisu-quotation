@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "is_demo": true,
+  "notice": "全部为虚构教学参数；不代表任何企业现行价格、加工费或税务口径。",
+  "currency": "CNY",
+  "machine": {
+    "max_length_cm": 120,
+    "max_width_cm": 70,
+    "total_edge_length_cm": 4,
+    "total_edge_width_cm": 4,
+    "gap_cm": 0
+  },
+  "materials": [
+    {
+      "material": "PET",
+      "color": "灰色",
+      "price_per_kg": 7.50,
+      "density_g_cm3": 1.40,
+      "price_date": "2026-10-22",
+      "price_confirmed": false,
+      "processing_base_per_sheet": 1.20
+    }
+  ],
+  "processing_tiers": [
+    {"min_cavities": 1, "max_cavities": 10, "surcharge_per_sheet": 0},
+    {"min_cavities": 11, "max_cavities": 25, "surcharge_per_sheet": 0.25},
+    {"min_cavities": 26, "max_cavities": 36, "surcharge_per_sheet": 0.50},
+    {"min_cavities": 37, "max_cavities": 50, "surcharge_per_sheet": 1.00},
+    {"min_cavities": 51, "max_cavities": 70, "surcharge_per_sheet": 1.25},
+    {"min_cavities": 71, "max_cavities": 100, "surcharge_per_sheet": 1.50}
+  ],
+  "small_order_tiers": [
+    {"min_sheets_inclusive": 0, "max_sheets_exclusive": 500, "fee": 400},
+    {"min_sheets_inclusive": 500, "max_sheets_exclusive": 1000, "fee": 250},
+    {"min_sheets_inclusive": 1000, "max_sheets_exclusive": null, "fee": 0}
+  ],
+  "tax_multiplier": 1.10,
+  "default_extra_margin_rate": 0,
+  "minimum_margin_rate": null,
+  "allow_preliminary_male_mold_default": true,
+  "allow_height_based_estimate": false
+}
+

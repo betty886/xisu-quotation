@@ -1,0 +1,24 @@
+{
+  "is_demo": true,
+  "notice": "虚构教学订单，无真实客户。",
+  "shape": "rectangle",
+  "length_cm": 20,
+  "width_cm": 15,
+  "height_cm": 3,
+  "mold_type": "female",
+  "total_bleed_cm": 1,
+  "material": "PET",
+  "color": "灰色",
+  "quantity": 6000,
+  "measured_thickness_mm": 0.50,
+  "defect_rate": 0,
+  "extra_margin_rate": 0,
+  "tax_included": true,
+  "pass_through": {
+    "mold_fee": 300,
+    "packaging_fee": 120,
+    "other_fee": 0,
+    "freight": {"mode": "manual", "amount": 180}
+  }
+}
+
