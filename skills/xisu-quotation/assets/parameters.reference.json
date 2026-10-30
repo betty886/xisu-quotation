@@ -149,7 +149,7 @@
     {
       "material": "PP",
       "color": "白色",
-      "price_per_kg": 10.5,
+      "price_per_kg": 11.5,
       "density_g_cm3": 0.92,
       "processing_base_per_sheet": 1,
       "price_date": "2026-08-08",
@@ -158,7 +158,7 @@
     {
       "material": "PP",
       "color": "黑色",
-      "price_per_kg": 9,
+      "price_per_kg": 10,
       "density_g_cm3": 0.92,
       "processing_base_per_sheet": 1,
       "price_date": "2026-08-08",
@@ -167,7 +167,7 @@
     {
       "material": "PP",
       "color": "彩色",
-      "price_per_kg": 11,
+      "price_per_kg": 12,
       "density_g_cm3": 0.92,
       "processing_base_per_sheet": 1,
       "price_date": "2026-08-08",
