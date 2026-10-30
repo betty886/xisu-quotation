@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102b40">
+  <meta name="robots" content="noindex,follow">
+  <meta name="description" content="吸塑成品参考报价。填写产品尺寸、数量、材料及厚度或克重，选择阴模或阳模，查看含税参考价。">
+  <title>吸塑报价工作台</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><path d="m4 11 12-6 12 6-12 6Z M4 16l12 6 12-6 M4 21l12 6 12-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>吸塑报价 <span class="brand-divider">/</span> 工作台</span>
+    </div>
+    <span class="preview-badge">本机运行</span>
+  </header>
+  <main>
+    <div class="page-intro"><div><p class="eyebrow">REFERENCE QUOTATION</p><h1>吸塑定制，先算个价。</h1></div><p class="intro-note">填写规格，自动计算<br><span>未税 / 含税单价，一次看清</span></p></div>
+    <div class="quote-layout">
+      <form id="quote-form" novalidate>
+        <section class="form-card" aria-label="产品规格">
+          <div class="section-heading"><h2><span class="section-number">01</span> 产品规格</h2><span>按产品外尺寸填写</span></div>
+          <div class="form-body">
+            <div class="field material-field"><label for="variant">材质与颜色</label><select id="variant" name="variantId" required disabled><option value="">正在载入材料…</option></select></div>
+            <div class="dimensions-heading"><label>长 × 宽 × 高</label><fieldset class="unit-control"><legend class="sr-only">尺寸单位</legend><label><input type="radio" name="dimensionUnit" value="cm" checked><span>cm</span></label><label><input type="radio" name="dimensionUnit" value="mm"><span>mm</span></label></fieldset></div>
+            <div class="dimension-grid">
+              <div class="field"><label for="length" id="length-label">长度</label><div class="input-wrap"><input id="length" name="length" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 17" required><span class="dimension-unit">cm</span></div></div>
+              <div class="field" id="width-field"><label for="width" id="width-label">宽度</label><div class="input-wrap"><input id="width" name="width" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 5.5" required><span class="dimension-unit">cm</span></div></div>
+              <div class="field"><label for="height">高度</label><div class="input-wrap"><input id="height" name="height" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 5.5" required><span class="dimension-unit">cm</span></div></div>
+            </div>
+            <details class="shape-details"><summary>其他形状 <span id="shape-summary">矩形</span></summary><div class="shape-row"><label for="shape">产品平面形状</label><select id="shape" name="shape"><option value="rectangle">矩形</option><option value="circle">圆形</option><option value="ellipse">椭圆形</option><option value="hexagon">正六边形</option><option value="triangle">三角形</option></select></div><p id="shape-hint" class="field-hint">矩形按外部长宽填写。</p></details>
+            <div class="spec-grid">
+              <div class="field quantity-field"><label for="quantity">订购数量</label><div class="input-wrap"><input id="quantity" name="quantity" type="text" inputmode="numeric" autocomplete="off" placeholder="例如 10000" required><span>件</span></div></div>
+              <div class="measurement-field" id="measurement-field">
+                <fieldset class="measurement-mode"><legend class="sr-only">选择厚度或克重</legend><label><input type="radio" name="measurementMode" value="thickness" checked><span>按厚度</span></label><label id="weight-mode-option"><input type="radio" name="measurementMode" value="weight"><span>按克重</span></label></fieldset>
+                <div class="field" id="thickness-field"><label for="thickness" class="sr-only" id="thickness-label">原片厚度</label><div class="input-wrap"><input id="thickness" name="thicknessMm" type="text" inputmode="decimal" autocomplete="off" placeholder="填写原片厚度" aria-describedby="measurement-hint"><span>mm</span></div></div>
+                <div class="field" id="weight-field" hidden><label for="weight" class="sr-only" id="weight-label">成品单件克重</label><div class="input-wrap"><input id="weight" name="weightG" type="text" inputmode="decimal" autocomplete="off" placeholder="填写成品单件净重" aria-describedby="measurement-hint"><span>g</span></div></div>
+              </div>
+            </div>
+            <p class="field-hint measurement-hint" id="measurement-hint">厚度或克重选填；都不填时按高度估算，需复核。</p>
+            <div class="mold-heading"><span id="mold-label">模具类型</span><button class="text-button" type="button" id="mold-help"><span class="help-icon" aria-hidden="true">?</span> 阴模、阳模怎么看</button></div>
+            <fieldset class="mold-options" aria-labelledby="mold-label">
+              <legend class="sr-only">模具类型，必选</legend>
+              <label class="mold-option"><input type="radio" id="mold-male" name="moldType" value="male"><span class="mold-icon" aria-hidden="true"><svg viewBox="0 0 44 24"><path d="M2 20h11V7h18v13h11" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 16h7V3h26v13h7" fill="none" stroke="#c9aa6f" stroke-width="2"/></svg></span><span><strong>阳模</strong><small>模具向外凸起</small></span><span class="radio-mark" aria-hidden="true"></span></label>
+              <label class="mold-option"><input type="radio" id="mold-female" name="moldType" value="female"><span class="mold-icon" aria-hidden="true"><svg viewBox="0 0 44 24"><path d="M2 6h11v14h18V6h11" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 2h15v14h10V2h15" fill="none" stroke="#c9aa6f" stroke-width="2"/></svg></span><span><strong>阴模</strong><small>模具向内凹陷</small></span><span class="radio-mark" aria-hidden="true"></span></label>
+            </fieldset>
+            <p class="field-hint mold-hint" id="mold-hint">按模具结构选择；不确定时，先确认模具类型。</p>
+            <div id="form-error" class="form-error" role="alert" hidden></div>
+            <div class="form-actions"><button id="calculate" class="primary-button" type="submit" disabled>计算参考价 <span aria-hidden="true">→</span></button><span>填好后也会自动计算</span></div>
+          </div>
+        </section>
+      </form>
+      <aside class="result-card" id="result-card" aria-label="报价结果" aria-busy="false">
+        <div class="result-main">
+          <div class="result-heading"><span class="result-title">本次参考报价</span><span class="status-badge" id="quote-status">等待填写</span></div>
+          <div class="dual-prices"><div class="price-option"><span class="price-label">未税单价</span><div class="price-line"><span class="currency">¥</span><strong id="untaxed-unit-price">—</strong><span class="per-unit">/ 件</span></div></div><div class="price-option tax-included"><span class="price-label">含税单价</span><div class="price-line"><span class="currency">¥</span><strong id="unit-price">—</strong><span class="per-unit">/ 件</span></div></div></div>
+          <p id="result-message">填写产品规格，即可查看未税与含税单价。</p>
+          <div class="total-row"><span id="total-label">本单含税产品金额</span><strong id="total-price">¥ —</strong></div>
+        </div>
+        <div class="result-body">
+
+          <div class="inclusions"><span class="included-tag">另计</span><p>运费、模具费、包装费及其他特殊要求费用另计。</p></div>
+          <details class="quote-details"><summary>规格与报价说明 <span aria-hidden="true">＋</span></summary><div id="spec-summary" class="spec-summary" hidden></div><div class="result-notes" id="result-notes"><p>参考价按所填规格计算，最终价格在样品及订单确认后核定。</p></div></details>
+          <button type="button" id="copy-quote" class="secondary-button" disabled>复制报价信息 <span aria-hidden="true">↗</span></button>
+          <span class="copy-status" id="copy-status" role="status" aria-live="polite"></span>
+
+        </div>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>尺寸或材料变化时，价格会重新计算。</span><span>参数可按实际情况修改，报价供参考。</span></footer>
+    <p class="sr-only" id="quote-announcement" role="status" aria-live="polite"></p>
+  </main>
+  <dialog id="mold-dialog" aria-labelledby="mold-dialog-title">
+    <div class="dialog-heading"><div><p class="eyebrow">模具说明</p><h2 id="mold-dialog-title">看模具结构，选阴模或阳模</h2></div><button type="button" id="close-help" class="close-button" aria-label="关闭模具说明">×</button></div>
+    <div class="guide-grid">
+      <section class="guide-example"><h3>阳模 <span>模具向外凸起</span></h3><svg viewBox="0 0 240 140" role="img" aria-label="阳模剖面：片材包覆在凸起的模具外侧"><path d="M20 115V90h50V45h100v45h50v25Z" fill="#dce8e1" stroke="#587465" stroke-width="2"/><path d="M20 81h40V35h120v46h40" fill="none" stroke="#bc8e47" stroke-width="4" stroke-linejoin="round"/><path d="M120 7v16m-5-5 5 5 5-5" fill="none" stroke="#bc8e47" stroke-width="2"/><text x="120" y="102" text-anchor="middle" fill="#496655" font-size="12">凸起的模具</text></svg><p>片材加热后，覆在凸起的模具外侧成型。</p></section>
+      <section class="guide-example"><h3>阴模 <span>模具向内凹陷</span></h3><svg viewBox="0 0 240 140" role="img" aria-label="阴模剖面：片材吸入模具内的凹槽"><path d="M20 115V40h50v50h100V40h50v75Z" fill="#dce8e1" stroke="#587465" stroke-width="2"/><path d="M20 31h60v50h80V31h60" fill="none" stroke="#bc8e47" stroke-width="4" stroke-linejoin="round"/><path d="M120 9v35m-5-5 5 5 5-5" fill="none" stroke="#bc8e47" stroke-width="2"/><text x="120" y="107" text-anchor="middle" fill="#496655" font-size="12">凹槽模具</text></svg><p>片材加热后，吸入模具的凹槽内部成型。</p></section>
+    </div>
+    <div class="diagram-legend"><span class="legend-sheet"></span>片材 <span class="legend-mold"></span>模具 <span>示意为模具剖面</span></div>
+    <p class="guide-footnote">不能只看成品的凸凹判断模具类型。不确定时，请根据样品或图纸确认。</p>
+    <button class="primary-button" type="button" id="understood-help">知道了</button>
+  </dialog>
+</body>
+</html>
