@@ -97,12 +97,16 @@
     $('total-price').textContent = `¥ ${fmt(quote.total)}`;
     $('total-label').textContent = `${fmt(quote.quantity, 0)} 件 · 含税产品金额`;
     $('quote-status').textContent = '参考报价';
-    $('result-message').textContent = quote.thicknessSource === 'weight_estimate' ? '按所填成品克重估算，打样后复核。' : quote.thicknessSource === 'height_estimate' ? '按高度估算厚度，打样后复核。' : '按本次规格计算，请核对参考参数。';
+    const estimate = Number.isFinite(quote.thicknessMm) ? `${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）` : '';
+    $('result-message').textContent = quote.thicknessSource === 'weight_estimate' ? `按克重反推厚度：${estimate}，打样后复核。` : quote.thicknessSource === 'height_estimate' ? `按高度估算厚度：${estimate}，打样后复核。` : '按本次规格计算，请核对参考参数。';
     $('spec-summary').replaceChildren();
     addSummaryRow('材料', variants.get(payload.variantId).label);
     addSummaryRow(shapeNames[payload.shape], describeDimensions(payload));
-    if (payload.thicknessMm) addSummaryRow(currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度', `${payload.thicknessMm} mm`);
-    else if (payload.weightG) addSummaryRow('成品单件克重', `${payload.weightG} g`);
+    if (payload.weightG) addSummaryRow('成品单件克重', `${payload.weightG} g`);
+    if (quote.thicknessSource !== 'not_required' && Number.isFinite(quote.thicknessMm)) {
+      const label = quote.thicknessSource === 'height_estimate' ? '按高度估算厚度' : quote.thicknessSource === 'weight_estimate' ? '按克重反推厚度' : currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度';
+      addSummaryRow(label, `${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）`);
+    }
     addSummaryRow('模具', payload.moldType === 'male' ? '阳模' : '阴模');
     $('spec-summary').hidden = false;
     $('result-notes').replaceChildren(...quote.notes.map(paragraph));
@@ -213,7 +217,9 @@
     if (!state.quote || !state.payload) return;
     const quote = state.quote, payload = state.payload, requestId = state.sequence;
     const material = variants.get(payload.variantId).label;
-    const measurement = payload.thicknessMm ? `${currentVariant().material.includes('植绒') ? '裸基材' : '原片'}厚度：${payload.thicknessMm} mm` : payload.weightG ? `成品单件克重：${payload.weightG} g` : currentVariant().requiresThicknessWeight ? '厚度：按高度估算' : '按面积报价';
+    const thicknessLabel = quote.thicknessSource === 'height_estimate' ? '按高度估算厚度' : quote.thicknessSource === 'weight_estimate' ? '按克重反推厚度' : currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度';
+    const thicknessText = quote.thicknessSource !== 'not_required' && Number.isFinite(quote.thicknessMm) ? `${thicknessLabel}：${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）` : '按面积报价';
+    const measurement = payload.weightG ? `成品单件克重：${payload.weightG} g\n${thicknessText}` : thicknessText;
     const text = ['吸塑定制参考报价', `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${payload.moldType === 'male' ? '阳模' : '阴模'}`, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `含税产品总额：¥ ${fmt(quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].join('\n');
     try {
       await navigator.clipboard.writeText(text);

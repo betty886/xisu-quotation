@@ -65,7 +65,9 @@ function calculate(payload, config) {
   if(thicknessSource==='weight_estimate')notes.push('按单件净重估算厚度，需复核。');
   if(thicknessSource==='height_estimate')notes.push('按产品高度估算厚度，需复核。');
   if(selected.material==='植布')notes.push('植布按面积报价，产品长宽方向固定。');
-  return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,quantity,currency:'CNY',taxIncluded:true,thicknessSource,reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
+  const thicknessMm=thicknessSource==='not_required'?null:result.calculation.thicknessMm;
+  if(thicknessSource!=='not_required'&&!(Number.isFinite(thicknessMm)&&thicknessMm>0))throw new RequestError('厚度计算结果无效，请核对输入。');
+  return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,quantity,currency:'CNY',taxIncluded:true,thicknessSource,thicknessMm,reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
 }
 function sendJson(res,status,body){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));}
 function readJson(req) {
