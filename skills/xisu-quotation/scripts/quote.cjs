@@ -38,5 +38,24 @@ function quote(order,config){
  delete result.untaxedFinalUnit; delete result.taxIncludedFinalUnit; delete result.untaxedSuggestedUnit; delete result.taxIncludedSuggestedUnit;
  return {status:'pending_review',status_reason:'参考参数及假设需使用者核对',assumptions:assumed,selected:input.taxIncluded?'含税':'未税',taxed_unit:resultPrice.finalUnit,untaxed_unit:resultUntaxed.finalUnit,taxed_total:resultPrice.total,untaxed_total:resultUntaxed.total,calculation:result};
 }
-if(require.main===module){try{const [orderFile,configFile]=process.argv.slice(2);if(!orderFile)throw Error('用法：node scripts/quote.cjs 订单.json [参数.json]');const order=JSON.parse(fs.readFileSync(orderFile,'utf8')),config=JSON.parse(fs.readFileSync(configFile||path.join(__dirname,'../assets/parameters.reference.json'),'utf8'));const result=quote(order,config);console.log(JSON.stringify(result,null,2));if(result.status==='blocked')process.exitCode=2;}catch(e){console.error(JSON.stringify({status:'blocked',errors:[e.message]}));process.exitCode=2;}}
-module.exports={quote,heightEstimate};
+async function quoteWithFlockWeight(order,config,{resolveThickness=require('./flock-thickness-client.cjs').resolveThickness}={}){
+ if(!order||typeof order!=='object'||!String(order.material||'').includes('植绒')||!missing(order.measured_thickness_mm)||missing(order.weight_g))return quote(order,config);
+ if(!['finished','substrate'].includes(order.weight_basis))throw Error('请确认克重是植绒后成品还是植绒前裸片，并填写 weight_basis。');
+ // Validate before contacting the service and do not send customer or quote details.
+ n(order.length_cm,'长度');n(order.weight_g,'单件克重');
+ const shape=order.shape||'rectangle';
+ if(!['rectangle','circle','ellipse','hexagon','triangle'].includes(shape))throw Error('请选择支持的产品形状。');
+ if(!['circle','hexagon'].includes(shape))n(order.width_cm,'宽度');
+ if(!config.materials.some(m=>m.material===order.material&&m.color===order.color))throw Error('材料与颜色参数缺失，请核对。');
+ const input={material:order.material,color:order.color,shape,length:order.length_cm,...(!['circle','hexagon'].includes(shape)?{width:order.width_cm}:{}),dimensionUnit:'cm',weightG:order.weight_g,weightBasis:order.weight_basis};
+ const t=await resolveThickness(input);
+ if(!Number.isFinite(t)||t<=0||t>100)throw Error('植绒克重反推服务结果无效；请核对或填写裸基材厚度。');
+ const result=quote({...order,measured_thickness_mm:t},config);
+ if(result.status!=='blocked'){
+  result.assumptions.push(`按${order.weight_basis==='finished'?'植绒后成品':'植绒前裸片'}克重反推裸基材厚度，为估算值；联网服务采用参考工艺，实际样品需复核。`);
+  result.calculation.thicknessSource='equivalent';
+ }
+ return result;
+}
+if(require.main===module){(async()=>{try{const [orderFile,configFile]=process.argv.slice(2);if(!orderFile)throw Error('用法：node scripts/quote.cjs 订单.json [参数.json]');const order=JSON.parse(fs.readFileSync(orderFile,'utf8')),config=JSON.parse(fs.readFileSync(configFile||path.join(__dirname,'../assets/parameters.reference.json'),'utf8'));const result=await quoteWithFlockWeight(order,config);console.log(JSON.stringify(result,null,2));if(result.status==='blocked')process.exitCode=2;}catch(e){console.error(JSON.stringify({status:'blocked',errors:[e.message]}));process.exitCode=2;}})();}
+module.exports={quote,quoteWithFlockWeight,heightEstimate};

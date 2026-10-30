@@ -4,7 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const {quote} = require('./quote.cjs');
+const {quoteWithFlockWeight} = require('./quote.cjs');
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'web');
 const parameterFile = path.join(root, 'assets', 'parameters.reference.json');
@@ -16,7 +16,7 @@ const staticFiles = new Map([
   ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
   ['/mold-guide.svg', ['mold-guide.svg', 'image/svg+xml']]
 ]);
-const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','moldType','shape']);
+const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape']);
 const empty = x => x == null || typeof x === 'string' && !x.trim();
 class RequestError extends Error { constructor(message, field, status=422) { super(message); this.field=field; this.status=status; } }
 function num(value, label, field, {optional=false, allowZero=false, integer=false, max=1e9}={}) {
@@ -39,7 +39,7 @@ function variants(config) {
       label:material==='PET透明'?'PET透明':`${material} · ${color}`,requiresThicknessWeight:material!=='植布'};
   });
 }
-function calculate(payload, config) {
+async function calculate(payload, config, options={}) {
   if (!payload || typeof payload!=='object' || Array.isArray(payload)) throw new RequestError('请填写有效规格。',undefined,400);
   if (Object.keys(payload).some(k=>!allowedFields.has(k))) throw new RequestError('报价规格包含不支持的字段。',undefined,400);
   const selected=variants(config).find(v=>v.variantId===payload.variantId);
@@ -54,15 +54,15 @@ function calculate(payload, config) {
   const quantity=num(payload.quantity,'订单数量','quantity',{integer:true,max:100000000});
   const thickness=num(payload.thicknessMm,'厚度','thicknessMm',{optional:true,max:100});
   const weight=num(payload.weightG,'单件克重','weightG',{optional:true,max:1000000});
-  if(selected.material.includes('植绒') && thickness===null && weight!==null)throw new RequestError('请选择按厚度报价，并填写厚度。','thicknessMm');
+  if(selected.material.includes('植绒') && thickness===null && weight!==null && !['finished','substrate'].includes(payload.weightBasis))throw new RequestError('请选择植绒克重的称重阶段。','weightBasis');
   const order={material:selected.material,color:selected.color,shape,length_cm:l/div,width_cm:w===null?undefined:w/div,height_cm:h/div,quantity,mold_type:payload.moldType,
-    ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}),tax_included:true};
+    ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}), ...(selected.material.includes('植绒')&&thickness===null&&weight!==null?{weight_basis:payload.weightBasis}:{}),tax_included:true};
   let result;
-  try { result=quote(order,config); } catch(e) {throw new RequestError(e.message);}
+  try { result=await quoteWithFlockWeight(order,config,options); } catch(e) {throw new RequestError(e.message);}
   if(result.status==='blocked'||![result.taxed_unit,result.untaxed_unit,result.taxed_total].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>0)) throw new RequestError(result.errors?.join('；')||'该规格暂无法自动报价，请核对输入。');
   const thicknessSource=selected.material==='植布'?'not_required':thickness!==null?'measured':weight!==null?'weight_estimate':'height_estimate';
   const notes=['价格为参考报价，具体订单请核对材料、规格和费用。'];
-  if(thicknessSource==='weight_estimate')notes.push('按单件净重估算厚度，需复核。');
+  if(thicknessSource==='weight_estimate')notes.push(selected.material.includes('植绒')?`按${payload.weightBasis==='finished'?'植绒后成品':'植绒前裸片'}单件净重估算裸基材厚度；联网服务采用参考工艺，实际样品需复核。`:'按单件净重估算厚度，需复核。');
   if(thicknessSource==='height_estimate')notes.push('按产品高度估算厚度，需复核。');
   if(selected.material==='植布')notes.push('植布按面积报价，产品长宽方向固定。');
   const thicknessMm=thicknessSource==='not_required'?null:result.calculation.thicknessMm;
@@ -78,7 +78,7 @@ function readJson(req) {
     req.on('aborted',()=>{clearTimeout(timer);if(!rejected){rejected=true;reject(new RequestError('请求已中断。',undefined,400))}});
   });
 }
-function createServer({configPath=parameterFile}={}) {
+function createServer({configPath=parameterFile,resolveThickness}={}) {
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
@@ -92,7 +92,7 @@ function createServer({configPath=parameterFile}={}) {
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
       if(req.method==='POST'&&pathname==='/api/quote'){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
-        const body=await readJson(req);return sendJson(res,200,calculate(body,loadConfig(configPath)));
+        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath),resolveThickness?{resolveThickness}:{}));
       }
       if(req.method!=='GET' && req.method!=='HEAD')throw new RequestError('请求方式不受支持。',undefined,405);
       const entry=staticFiles.get(pathname);if(!entry)throw new RequestError('页面不存在。',undefined,404);

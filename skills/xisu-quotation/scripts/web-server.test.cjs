@@ -32,7 +32,7 @@ const {quote}=require('./quote.cjs');
   const outfile=path.join(os.tmpdir(),'xisu-config-'+process.pid+'-'+Date.now()+'.json');fs.writeFileSync(outfile,JSON.stringify(changed));
   const custom=createServer({configPath:outfile});await new Promise(resolve=>custom.listen(0,'127.0.0.1',resolve));
   try{res=await fetch('http://127.0.0.1:'+custom.address().port+'/api/quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(base)});assert.equal(res.status,200);const result=await res.json();assert.ok(result.referenceUnitPrice>.141);}finally{await new Promise(resolve=>custom.close(resolve));fs.unlinkSync(outfile);}
-  assert.equal(calculate(base,config).referenceUnitPrice,.141);assert.equal(variants(config).length,28);
+  assert.equal((await calculate(base,config)).referenceUnitPrice,.141);assert.equal(variants(config).length,28);
   console.log('PASS local quote HTTP: 28 materials, PET, all flocked colors, cloth, height/weight, matching CLI, external origin/host, private paths, invalid input, custom configuration');
  }finally{await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exit(1)});
