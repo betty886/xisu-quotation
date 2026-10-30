@@ -1,169 +1,65 @@
-# 吸塑报价 Skill · 公开版
+# 吸塑报价 Skill
 
-把吸塑产品的尺寸、材料、订单数量和工厂参数，整理成可复核的排版与报价过程。
+根据产品尺寸、材质、颜色、模具和数量，计算吸塑产品的排版与参考报价。包含可执行的 Node.js 算价脚本和参考配置；安装后可直接使用，也可以把材料单价、比重和收费参数改成本厂的数值。
 
-适用于 PET、PET 透明、触感PET、镀金PET、PS、PVC、PP、已核准成品参数的植绒片材，以及按平方米计价的植布。面向吸塑厂业务员、报价人员和开发报价工具的使用者。
+支持普通 PVC、PS、PET、PET 透明、PP、触感 PET、镀金 PET，以及配套成品参数的植绒材料和按面积计价的植布。完整材料与颜色组合见 [参考参数](skills/xisu-quotation/assets/parameters.reference.json)。
 
-**这是一个规则型 AI Skill。** 它提供报价流程、计算公式、参数模板和教学算例；使用时由具备文件读取及计算工具的 AI 助手执行核算。仓库没有独立算价程序、网页或机器人服务。
+## 安装
 
-## 可以做什么
-
-- 普通/植绒比较两方向排版；植布仅原方向，禁止旋转。
-- 计算片材重量、材料费、连续计价张数和备料整张数。
-- 按“材料基础加工费 + 穴数档差”计算加工费。
-- 按张数计算小单费，单独核算模具、包装、运费等原额转收费用。
-- 区分毛利率与加价率，输出未税/含税建议单价及整单金额。
-- 在明确启用经验估算时，根据高度提出参考厚度，并保留“初步报价 / 待人工复核”状态。
-
-## 快速使用
-
-### Codex
-
-可以让 Codex 的技能安装器从本仓库安装 `skills/xisu-quotation`：
+在 Codex 中发送：
 
 ```text
 使用 $skill-installer，从 GitHub 仓库 betty886/xisu-quotation 安装 skills/xisu-quotation。
 ```
 
-也可以下载本仓库，把整个 `skills/xisu-quotation` 文件夹复制到项目的 `.agents/skills/` 下。目录最终应为 `.agents/skills/xisu-quotation/SKILL.md`。需要全局使用时，放到用户目录的 `.agents/skills/` 下。
+或将 `skills/xisu-quotation` 整个文件夹复制到项目的 `.agents/skills/`。保留 `SKILL.md`、`scripts/`、`assets/` 和 `references/`。安装后若未显示，重启助手。已有安装请更新整个技能文件夹，先备份自己修改过的参数。
 
-官方安装与发现机制：[OpenAI Skills 文档](https://learn.chatgpt.com/docs/build-skills)。如果安装后暂未显示，重新启动 Codex。
+## 使用
 
-### 其他支持 SKILL.md 的助手
-
-按照对应工具的技能安装方式导入整个技能文件夹，并保留 `references/` 与 `assets/` 相对路径。不同工具的安装目录可能不同。
-
-### 普通聊天工具
-
-可以阅读并提供 `SKILL.md` 和 `references/calculation-rules.md` 作为核算说明。若没有实际计算工具，应由人工或外部计算器复核金额；不要把文字推演当作已经运行过的程序结果。
-
-## 已内置完整收费与设备数值
-
-不用再手工提供小单费、基础加工费和穴数档差。使用者未提供自有配置时，技能采用 [公开参考配置](skills/xisu-quotation/assets/parameters.reference.json)，并在结果中注明来源。
-
-| 项目 | 公开参考数值 |
-|---|---|
-| 机器最大片材 | 126×76 cm；每方向总边料4 cm；间距0 cm |
-| 阴模总出血 | 长、宽各总加1 cm |
-| 基础加工费，元/张 | PVC 1.20；PS/PET/PP 1.00；PET透明0.60；触感PET/镀金PET/PVC植绒/PS植绒/PET植绒1.50 |
-| 穴数档位 | 1–10 / 11–25 / 26–36 / 37–50 / 51–70 / 71–100 |
-| 对应加工费档差，元/张 | +0 / +0.20 / +0.40 / +0.90 / +1.10 / +1.40 |
-| 小单费，整单一次 | 数量÷穴数<500张收500元；500至不足1000张收300元；1000张起免收 |
-
-每张加工费＝材料基础费＋穴数档差。小单张数不取整、不加不良率。使用者可用自己的有效配置覆盖这些参考值。
-
-触感PET、镀金PET分别登记参考比重1.40和起步加工费1.50元/张；实测厚度优先，净重可反推，缺厚度和净重时按PET高度估厚并取最近5丝档。它们不继承普通PET采购价或起步加工费。
-
-## 植布也已包含
-
-植布按整张片材面积计价：面积cm²÷10000×未税元/平方米；固定加工费参考3元/张，不按穴数加差额。整张长≤110cm、宽≤70cm，包含出血和边料；设备更小时取更小值。只算原方向，禁止旋转90°。缺模具暂按阴模，明确阳模输入则保留。植布不使用厚度、克重或比重。
-
-实际植布采购价和含税系数必须由使用者提供，参考配置两项均留空。详细算法见 [植布规则](skills/xisu-quotation/references/cloth-rules.md)。
-
-植布教学试跑：
+在支持 Skill 的 AI 助手中描述订单，例如：
 
 ```text
-使用 $xisu-quotation，读取技能安装目录的 references/cloth-rules.md、
-assets/parameters.cloth.example.json 和 assets/order.cloth.example.json，
-用实际计算工具核算并对照 references/examples.md 第8节，保留演示、默认阴模和待复核标记。
+使用 $xisu-quotation，按 PET透明、透明，长7.2厘米、宽7.7厘米、高3.6厘米，阳模，厚0.8毫米，数量24万个，计算未税和含税参考报价。使用内置参数，并列出排版和费用。
 ```
 
-本植布教学预期：8穴，76×68cm；未税1.4086元/个、14086.00元/单；含税1.5495元/个、15495.00元/单。例中16元/平方米和1.10仅是明确给定的教学值。
-
-## 先填写自己的采购参数
-
-实际报价从 `assets/parameters.reference.json` 复制到私有目录：选择本单材料，填写颜色、采购价、价格日期和含税系数；普通/植绒核对密度，植布填写 `cloth.price_per_m2`（元/平方米），不需密度。植绒须提供与本单裸片厚度配套的成品价和等效比重。
-采购价与含税系数保留 null，必须由使用者填写，不提供通用税率或企业采购价。
-
-`assets/parameters.example.json` 与 `assets/order.example.json` 用于教学：机器和收费与公开参考配置一致，采购价7.50、含税系数1.10及订单为虚构教学数据，`is_demo: true`、`price_confirmed: false` 保持不变。
-
-真实使用前，在自己的私有目录保存配置副本，并确认：
-
-| 参数 | 必须明确的口径 |
-|---|---|
-| 材料与颜色 | 精确匹配，不能借用其他材料或颜色的价格 |
-| 材料价格、密度、价格日期 | 按本厂当前采购和核准资料填写 |
-| 机器规格、边料和间距 | 使用当前设备与工艺参数 |
-| 加工费、小单费 | 可直接采用公开参考规则，也可提供本厂规则覆盖 |
-| 含税系数 | 商业报价参数，须明确提供；本仓库不设通用税率 |
-| 不良率、毛利率 | 用小数表示，例如 `0.03` 表示 3% |
-| 包装、运费、模具等 | 明确按本规则原额转收，整单只计一次 |
-
-真实订单、客户信息和采购价文件请保存为 `*.local.json` 或放入 `private/`；仓库的忽略规则会排除这些路径。
-
-使用示例：
+也可以安装 Node.js，在技能目录中运行：
 
 ```text
-用 $xisu-quotation 核算这张订单。
-先读取技能内置的 parameters.reference.json；我没另给收费配置时采用公开参考收费。
-读取我提供的订单、材料采购价和含税系数，列出仍缺少的具体输入。
-请展示两种排版方向、材料和加工费用、小单费、原额转收费用及取整前后的单价。
-所有采用的默认值和估算都要写明，结果交由我复核。
+node scripts/quote.cjs 订单.json
 ```
 
-试跑教学示例：
+可直接运行自带示例：
 
 ```text
-用 $xisu-quotation 读取技能安装目录下 assets/parameters.example.json
-和 assets/order.example.json，使用实际计算工具执行教学核算，
-并对照 references/examples.md 检查结果，保留演示和待复核状态。
+node scripts/quote.cjs scripts/order.sample.json
 ```
 
-本版教学预期：旋转方向21穴，片材116×67 cm，连续计价285.714285…张，备料286张；未税0.4348元/个、2608.80元/单；含税0.4683元/个、2809.80元/单。收费更新后，旧版0.4301/0.4631不再适用。
-
-已有安装需要更新整个技能目录；更新前保留自己的私有配置，不要覆盖自填价格。
-
-## 植绒成品与体积运费教学试跑
-
-在AI助手中发送以下任一段，读取路径均相对于技能安装目录：
+该示例为 PET 透明、阳模、0.8 mm、24 万件，预期未税单价 0.1305 元/件、含税单价 0.1410 元/件，状态 `pending_review`。命令默认读取技能目录下的 `assets/parameters.reference.json`。如需使用自己的参数文件，复制参考配置后修改，再指定文件路径：
 
 ```text
-使用 xisu-quotation，成套读取 assets/parameters.flocked.example.json 和 assets/order.flocked.example.json，
-按 references/calculation-rules.md 用实际计算工具核算，对照 references/examples.md 第9节，保持演示及待复核状态。
+node scripts/quote.cjs 订单.json 自己的参数.json
 ```
 
-植绒成品预期：未税0.6171元/个、3702.60元/单；含税0.6688元/个、4012.80元/单。成品价和等效比重仅为本例给定，不含内部生产核价。
+订单采用 JSON 格式，字段和单位可参考 [订单示例](skills/xisu-quotation/assets/order.example.json)：尺寸使用厘米、厚度使用毫米、数量使用件；实际材料和颜色需与所用参数表一致。输出包含未税和含税单价、整单金额、排版及状态。示例配置和订单仅供教学，不应与默认参考配置混用。
 
-```text
-使用 xisu-quotation，成套读取 assets/parameters.freight.example.json 和 assets/order.freight.example.json，
-用实际计算工具核算，展示箱数、体积、运费和整单报价，对照 references/examples.md 第10节。保留演示及待复核状态。
-```
+## 内置参考配置
 
-体积运费预期：9箱、81.00元运费；未税0.4183元/个、2509.80元/单；含税0.4518元/个、2710.80元/单。教学价格和1.10含税系数不能用于真实订单。
+参考配置提供材料和颜色对应的未税单价、比重、机器规格、加工费、小单费和 **1.08 含税系数**。植布参考价为 **16 元/平方米**、加工费为 **3 元/张**。这些数字供下载后直接试算，使用者可改成自己的实际参数；采购价格及设备条件变化时应先核对。
 
-## 目录
+植绒材料单价和比重可在参考参数表中查看或修改。
 
-| 文件 | 用途 |
-|---|---|
-| `skills/xisu-quotation/SKILL.md` | AI 助手的执行顺序与输入检查 |
-| `skills/xisu-quotation/references/calculation-rules.md` | 可复核的完整计算规则 |
-| `skills/xisu-quotation/references/examples.md` | 虚构教学算例和容易出错的边界 |
-| `skills/xisu-quotation/assets/parameters.reference.json` | 完整公开收费与机器参数；采购价、含税系数待填 |
-| `skills/xisu-quotation/assets/parameters.example.json` | 使用公开收费的教学配置，含虚构采购价及含税系数 |
-| `skills/xisu-quotation/assets/order.example.json` | 订单输入格式示例 |
-| `skills/xisu-quotation/references/cloth-rules.md` | 植布完整算法与输入约束 |
-| `skills/xisu-quotation/assets/parameters.cloth.example.json` | 植布成套教学参数 |
-| `skills/xisu-quotation/assets/order.cloth.example.json` | 植布教学订单，验证默认阴模 |
-| `skills/xisu-quotation/assets/parameters.flocked.example.json` / `skills/xisu-quotation/assets/order.flocked.example.json` | 已配套植绒成品片材参数与订单 |
-| `skills/xisu-quotation/assets/parameters.freight.example.json` / `skills/xisu-quotation/assets/order.freight.example.json` | 完整体积运费参数与订单 |
+机器默认最大 126 × 76 cm，长宽每方向两端边料合计各 4 cm；阴模长宽各总加 1 cm。普通及植绒按两方向比较排版；植布固定方向，整张长不超过 110 cm、宽不超过 70 cm，包含边料和出血，不允许旋转。
 
-## 适用范围与计算边界
+普通及植绒加工费按各材料基础加工费加穴数档差；小单张数为订单数量 ÷ 每张穴数，不取整：不足 500 张收 500 元，500 至不足 1000 张收 300 元，1000 张及以上不收。模具费、包装费及运费按订单输入分别计入。
 
-这里记录的是一种企业报价方法。高度估厚、加工费档位、小单费和费用转收方式属于经验或商业规则，应由使用者确认是否适合自己的工艺与业务。
+尺寸、厚度或克重、模具类型等信息影响结果。缺模具或使用高度估厚等假设时，结果标为 `pending_review`；缺关键参数或输入无效则为 `blocked`。请核对实际材料、颜色、模具与订单条件后再对客户报价。
 
-“净重 ÷ 投影面积”得到的是等效厚度估算，不能替代对复杂深腔产品原片厚度、成型难度和实际领料的核实。只有实测原片厚度、实际领料或经业务与工艺共同核准的口径，才能支持正式报价。
+## 文件说明
 
-本版支持普通高速吸塑、植绒成品片材报价及植布面积报价。植绒使用已经核准的成品采购参数；内部植绒生产核价和工位机实际利润需要另建独立模型。
+- `skills/xisu-quotation/SKILL.md`：AI 助手的报价流程。
+- `skills/xisu-quotation/scripts/quote.cjs`：独立算价入口。
+- `skills/xisu-quotation/assets/parameters.reference.json`：材料、颜色、机器和收费的可修改参考参数。
+- `skills/xisu-quotation/assets/order.example.json`：订单输入字段及单位示例。
+- `skills/xisu-quotation/references/`：通用计算规则、植布规则与教学算例。
 
-公开版的算法依据为作者 2026-10-14 定稿中的通用报价规则，发布整理日期为 2026-10-22。企业采购表、客户案例、生产部署和历史版本记录未进入本项目。此公开版的发布不代表其他报价系统已经同步这些规则。
-
-## 反馈与贡献
-
-反馈计算问题时，请提供脱敏后的输入、使用的参数、实际结果和期望结果。请使用虚构客户、演示价格及最小算例，不要提交密钥、客户联系方式、生产地址或真实报价档案。
-
-欢迎补充清晰的算例、单位说明、翻译和通用适配。修改公式时，请说明与现有规则的关系，并用非第一档加工费、阴阳模、半档归整等案例验证。
-
-## 作者与许可
-
-由 [betty886](https://github.com/betty886) 分享。采用 [MIT License](LICENSE)，允许使用、修改和再分发（包括商业用途），需要保留版权与许可声明。
-
+客户信息和本厂私有价格建议放在仓库外，或保存到 `private/`、`*.local.json`。内置参考值不等同于实时市场价格。

@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('assert/strict'),fs=require('fs'),path=require('path');const {quote,heightEstimate}=require('./quote.cjs');
+const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../assets/parameters.reference.json'),'utf8'));const pet=JSON.parse(fs.readFileSync(path.join(__dirname,'order.sample.json'),'utf8'));
+const r=quote(pet,p);assert.equal(r.untaxed_unit,.1305);assert.equal(r.taxed_unit,.141);assert.equal(r.taxed_total,33840);assert.equal(r.status,'pending_review');
+const flock={...pet,material:'PET植绒',color:'黑色',measured_thickness_mm:.4};const f=quote(flock,p);assert.equal(f.status,'pending_review');assert.ok(f.taxed_unit>0);const differentThickness=quote({...flock,measured_thickness_mm:.5},p);assert.equal(differentThickness.status,'pending_review');assert.ok(differentThickness.assumptions.some(x=>x.includes('参考单价')));assert.notEqual(differentThickness.taxed_unit,f.taxed_unit);assert.throws(()=>quote({...flock,measured_thickness_mm:null,weight_g:10},p),/净重/);assert.throws(()=>quote({...flock,measured_thickness_mm:0},p),/有效正数/);
+const custom=structuredClone(p), fm=custom.materials.find(x=>x.material==='PET植绒'&&x.color==='黑色');fm.density_g_cm3=1.52;fm.price_per_kg=12.3;assert.equal(quote({...flock,measured_thickness_mm:.5},custom).status,'pending_review');
+const c=quote({material:'植布',color:'白色',length_cm:35,width_cm:15,height_cm:1,quantity:10000,mold_type:'female'},p);assert.equal(c.taxed_unit,1.5213);assert.equal(c.calculation.layout.cavities,8);assert.ok(c.calculation.layout.sheetWidthCm<=70);assert.ok(c.calculation.layout.sheetLengthCm<=110);
+const round=heightEstimate('PP',4.5);assert.equal(round,.6);assert.equal(heightEstimate('PET',10.75),1.1);assert.equal(heightEstimate('PET',4.4),.45);
+const weight=quote({...pet,measured_thickness_mm:null,weight_g:15},p);assert.equal(weight.status,'pending_review');assert.ok(weight.assumptions.some(x=>x.includes('净重')));
+assert.throws(()=>quote({...pet,color:'不存在'},p),/材料与颜色/);assert.throws(()=>quote({...pet,measured_thickness_mm:-.1},p),/正数/);assert.throws(()=>quote({...pet,tax_included:'true'},p),/true 或 false/);
+assert.equal(quote({...pet,mold_type:null,measured_thickness_mm:null},p).status,'pending_review');
+console.log('PASS PET、材料参考参数与不同厚度、自定义参数、植布尺寸、估厚、克重和输入验证');
