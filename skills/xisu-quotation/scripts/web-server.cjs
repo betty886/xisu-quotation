@@ -65,9 +65,10 @@ async function calculate(payload, config, options={}) {
   if(thicknessSource==='weight_estimate')notes.push(selected.material.includes('植绒')?`按${payload.weightBasis==='finished'?'植绒后成品':'植绒前裸片'}单件净重估算裸基材厚度；联网服务采用参考工艺，实际样品需复核。`:'按单件净重估算厚度，需复核。');
   if(thicknessSource==='height_estimate')notes.push('按产品高度估算厚度，需复核。');
   if(selected.material==='植布')notes.push('植布按面积报价，产品长宽方向固定。');
+  if(selected.material.includes('植绒'))notes.push('植绒材料单价和比重按本次厚度联网核定，实际样品需复核。');
   const thicknessMm=thicknessSource==='not_required'?null:result.calculation.thicknessMm;
   if(thicknessSource!=='not_required'&&!(Number.isFinite(thicknessMm)&&thicknessMm>0))throw new RequestError('厚度计算结果无效，请核对输入。');
-  return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,quantity,currency:'CNY',taxIncluded:true,thicknessSource,thicknessMm,reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
+  return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,quantity,currency:'CNY',taxIncluded:true,thicknessSource,thicknessMm,...(selected.material.includes('植绒')?{flockPricePerKg:result.calculation.materialPrice,flockDensity:result.calculation.density}:{}),reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
 }
 function sendJson(res,status,body){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));}
 function readJson(req) {
@@ -78,7 +79,7 @@ function readJson(req) {
     req.on('aborted',()=>{clearTimeout(timer);if(!rejected){rejected=true;reject(new RequestError('请求已中断。',undefined,400))}});
   });
 }
-function createServer({configPath=parameterFile,resolveThickness}={}) {
+function createServer({configPath=parameterFile,resolveThickness,resolveParameters}={}) {
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
@@ -92,7 +93,7 @@ function createServer({configPath=parameterFile,resolveThickness}={}) {
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
       if(req.method==='POST'&&pathname==='/api/quote'){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
-        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath),resolveThickness?{resolveThickness}:{}));
+        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath),{...(resolveThickness?{resolveThickness}:{}),...(resolveParameters?{resolveParameters}:{})}));
       }
       if(req.method!=='GET' && req.method!=='HEAD')throw new RequestError('请求方式不受支持。',undefined,405);
       const entry=staticFiles.get(pathname);if(!entry)throw new RequestError('页面不存在。',undefined,404);

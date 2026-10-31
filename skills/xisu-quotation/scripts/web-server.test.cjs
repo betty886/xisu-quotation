@@ -5,7 +5,7 @@ const config=JSON.parse(fs.readFileSync(path.join(__dirname,'../assets/parameter
 const sample=JSON.parse(fs.readFileSync(path.join(__dirname,'order.sample.json'),'utf8'));
 const {quote}=require('./quote.cjs');
 (async()=>{
- const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ const resolveParameters=async()=>({pricePerKg:9,density:1.5});const server=createServer({resolveParameters});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  try{
   const opts=await fetch(origin+'/api/options');assert.equal(opts.status,200);const catalog=(await opts.json()).variants;assert.equal(catalog.length,28);
   assert.ok(!JSON.stringify(catalog).includes('price_per_kg'));
@@ -17,7 +17,7 @@ const {quote}=require('./quote.cjs');
   const mm={...base,length:72,width:77,height:36,dimensionUnit:'mm'};assert.deepEqual(await (await req(mm)).json(),out);
   const guessed=await(await req({...base,thicknessMm:undefined})).json();assert.equal(guessed.thicknessSource,'height_estimate');assert.equal(guessed.thicknessMm,.35);assert.match(guessed.notes.join(''),/高度/);
   const byWeight=await(await req({...base,thicknessMm:undefined,weightG:11.2,length:20,width:10,height:2,quantity:10000})).json();assert.equal(byWeight.thicknessSource,'weight_estimate');assert.equal(byWeight.thicknessMm,.4);
-  for(const color of ['白色','黑色','彩色']){res=await req({...base,variantId:v('PET植绒',color),thicknessMm:.4});assert.equal(res.status,200);const r=await res.json();assert.equal(r.thicknessSource,'measured');assert.ok(r.referenceUnitPrice>0);assert.deepEqual(Object.keys(r).sort(),Object.keys(out).sort());}
+  for(const color of ['白色','黑色','彩色']){res=await req({...base,variantId:v('PET植绒',color),thicknessMm:.4});assert.equal(res.status,200);const r=await res.json();assert.equal(r.thicknessSource,'measured');assert.ok(r.referenceUnitPrice>0);assert.equal(r.flockPricePerKg,9);assert.equal(r.flockDensity,1.5);}
   res=await req({...base,variantId:v('PET植绒','白色'),thicknessMm:undefined,weightG:15});assert.equal(res.status,422);
   res=await req({...base,variantId:v('植布','白色'),length:35,width:15,height:1,quantity:10000,moldType:'female',thicknessMm:undefined});out=await res.json();assert.equal(out.referenceUnitPrice,1.5213);assert.equal(out.thicknessSource,'not_required');assert.equal(out.thicknessMm,null);
   for(const payload of [{...base,quantity:0},{...base,quantity:1.5},{...base,thicknessMm:-1},{...base,variantId:'unknown'},{...base,shape:'invalid'},{...base,price:0},{...base,length:'Infinity'}])assert.ok((await req(payload)).status>=400);

@@ -13,6 +13,7 @@ async function resolveThickness(input, endpoint=process.env.XISU_FLOCK_THICKNESS
     data=await response.json();
   } catch { throw Error('植绒克重反推服务不可用；请稍后重试或填写裸基材厚度。'); }
   if(!response.ok){
+    if(response.status===429)throw Error('请求频繁，请稍后重试。');
     if(response.status===422) throw Error('克重与尺寸或称重阶段不匹配，请核对后重试。');
     throw Error('植绒克重反推服务不可用；请稍后重试或填写裸基材厚度。');
   }
