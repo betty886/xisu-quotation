@@ -5,11 +5,11 @@ const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../assets/parameters.ref
 const r=quote(pet,p);assert.equal(r.untaxed_unit,.1305);assert.equal(r.taxed_unit,.141);assert.equal(r.taxed_total,33840);assert.equal(r.status,'pending_review');
 const flock={...pet,material:'PET植绒',color:'黑色',measured_thickness_mm:.4};
 const resolveParameters=async()=>({pricePerKg:9,density:1.5});
-assert.throws(()=>quote(flock,p),/异步/);
+assert.equal(quote(flock,p).status,'pending_review');
 const f=await quoteWithFlockWeight(flock,p,{resolveParameters});assert.equal(f.status,'pending_review');assert.ok(f.taxed_unit>0);
-const differentThickness=await quoteWithFlockWeight({...flock,measured_thickness_mm:.5},p,{resolveParameters});assert.equal(differentThickness.status,'pending_review');assert.ok(differentThickness.assumptions.some(x=>x.includes('联网核定')));assert.notEqual(differentThickness.taxed_unit,f.taxed_unit);
+const differentThickness=await quoteWithFlockWeight({...flock,measured_thickness_mm:.5},p,{resolveParameters});assert.equal(differentThickness.status,'pending_review');assert.ok(differentThickness.assumptions.some(x=>x.includes('参考单价')));assert.notEqual(differentThickness.taxed_unit,f.taxed_unit);
 await assert.rejects(quoteWithFlockWeight({...flock,measured_thickness_mm:0},p,{resolveParameters}),/正数/);
-const custom=structuredClone(p),fm=custom.materials.find(x=>x.material==='PET植绒'&&x.color==='黑色');fm.density_g_cm3=1.52;fm.price_per_kg=12.3;assert.equal((await quoteWithFlockWeight({...flock,measured_thickness_mm:.5},custom,{resolveParameters})).calculation.materialPrice,9);
+const custom=structuredClone(p),fm=custom.materials.find(x=>x.material==='PET植绒'&&x.color==='黑色');fm.density_g_cm3=1.52;fm.price_per_kg=12.3;assert.equal((await quoteWithFlockWeight({...flock,measured_thickness_mm:.5},custom,{resolveParameters})).calculation.materialPrice,12.3);
 const c=quote({material:'植布',color:'白色',length_cm:35,width_cm:15,height_cm:1,quantity:10000,mold_type:'female'},p);assert.equal(c.taxed_unit,1.5213);assert.equal(c.calculation.layout.cavities,8);assert.ok(c.calculation.layout.sheetWidthCm<=70);assert.ok(c.calculation.layout.sheetLengthCm<=110);
 const round=heightEstimate('PP',4.5);assert.equal(round,.6);assert.equal(heightEstimate('PET',10.75),1.1);assert.equal(heightEstimate('PET',4.4),.45);
 const weight=quote({...pet,measured_thickness_mm:null,weight_g:15},p);assert.equal(weight.status,'pending_review');assert.ok(weight.assumptions.some(x=>x.includes('净重')));

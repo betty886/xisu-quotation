@@ -58,14 +58,14 @@ async function calculate(payload, config, options={}) {
   const order={material:selected.material,color:selected.color,shape,length_cm:l/div,width_cm:w===null?undefined:w/div,height_cm:h/div,quantity,mold_type:payload.moldType,
     ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}), ...(selected.material.includes('植绒')&&thickness===null&&weight!==null?{weight_basis:payload.weightBasis}:{}),tax_included:true};
   let result;
-  try { result=await quoteWithFlockWeight(order,config,options); } catch(e) {throw new RequestError(e.message);}
+  try { result=await quoteWithFlockWeight(order,config); } catch(e) {throw new RequestError(e.message);}
   if(result.status==='blocked'||![result.taxed_unit,result.untaxed_unit,result.taxed_total].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>0)) throw new RequestError(result.errors?.join('；')||'该规格暂无法自动报价，请核对输入。');
   const thicknessSource=selected.material==='植布'?'not_required':thickness!==null?'measured':weight!==null?'weight_estimate':'height_estimate';
   const notes=['价格为参考报价，具体订单请核对材料、规格和费用。'];
-  if(thicknessSource==='weight_estimate')notes.push(selected.material.includes('植绒')?`按${payload.weightBasis==='finished'?'植绒后成品':'植绒前裸片'}单件净重估算裸基材厚度；联网服务采用参考工艺，实际样品需复核。`:'按单件净重估算厚度，需复核。');
+  if(thicknessSource==='weight_estimate')notes.push(selected.material.includes('植绒')?(payload.weightBasis==='finished'?'按成品克重和参考比重估算等效厚度，仅供参考，不是裸基材厚度。':'按裸片克重和裸基材参考比重估算厚度，需实测复核。'):'按单件净重估算厚度，需复核。');
   if(thicknessSource==='height_estimate')notes.push('按产品高度估算厚度，需复核。');
   if(selected.material==='植布')notes.push('植布按面积报价，产品长宽方向固定。');
-  if(selected.material.includes('植绒'))notes.push('植绒材料单价和比重按本次厚度联网核定，实际样品需复核。');
+  if(selected.material.includes('植绒'))notes.push('植绒材料按参数表的参考单价和比重报价，实际样品需复核。');
   const thicknessMm=thicknessSource==='not_required'?null:result.calculation.thicknessMm;
   if(thicknessSource!=='not_required'&&!(Number.isFinite(thicknessMm)&&thicknessMm>0))throw new RequestError('厚度计算结果无效，请核对输入。');
   return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,quantity,currency:'CNY',taxIncluded:true,thicknessSource,thicknessMm,...(selected.material.includes('植绒')?{flockPricePerKg:result.calculation.materialPrice,flockDensity:result.calculation.density}:{}),reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
@@ -79,7 +79,7 @@ function readJson(req) {
     req.on('aborted',()=>{clearTimeout(timer);if(!rejected){rejected=true;reject(new RequestError('请求已中断。',undefined,400))}});
   });
 }
-function createServer({configPath=parameterFile,resolveThickness,resolveParameters}={}) {
+function createServer({configPath=parameterFile}={}) {
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
@@ -93,7 +93,7 @@ function createServer({configPath=parameterFile,resolveThickness,resolveParamete
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
       if(req.method==='POST'&&pathname==='/api/quote'){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
-        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath),{...(resolveThickness?{resolveThickness}:{}),...(resolveParameters?{resolveParameters}:{})}));
+        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath)));
       }
       if(req.method!=='GET' && req.method!=='HEAD')throw new RequestError('请求方式不受支持。',undefined,405);
       const entry=staticFiles.get(pathname);if(!entry)throw new RequestError('页面不存在。',undefined,404);

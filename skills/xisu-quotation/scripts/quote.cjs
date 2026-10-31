@@ -38,40 +38,43 @@ function quoteRaw(order,config){
  delete result.untaxedFinalUnit; delete result.taxIncludedFinalUnit; delete result.untaxedSuggestedUnit; delete result.taxIncludedSuggestedUnit;
  return {status:'pending_review',status_reason:'参考参数及假设需使用者核对',assumptions:assumed,selected:input.taxIncluded?'含税':'未税',taxed_unit:resultPrice.finalUnit,untaxed_unit:resultUntaxed.finalUnit,taxed_total:resultPrice.total,untaxed_total:resultUntaxed.total,calculation:result};
 }
+function flockWeightThickness(order,config){
+ const entries=config.materials.filter(m=>m.material===order.material&&m.color===order.color);
+ if(entries.length!==1)throw Error('材料与颜色参数缺失或重复，请核对。');
+ if(!['finished','substrate'].includes(order.weight_basis))throw Error('请确认克重是植绒后成品还是植绒前裸片，并填写 weight_basis。');
+ const length=n(order.length_cm,'长度'),weight=n(order.weight_g,'单件克重'),shape=order.shape||'rectangle';
+ let area;
+ if(shape==='circle')area=Math.PI*length*length/4;
+ else if(shape==='hexagon')area=3*Math.sqrt(3)*length*length/8;
+ else if(shape==='custom')area=n(order.custom_area_cm2,'实际投影面积');
+ else {const width=n(order.width_cm,'宽度');if(shape==='rectangle')area=length*width;else if(shape==='ellipse')area=Math.PI*length*width/4;else if(shape==='triangle')area=length*width/2;else throw Error('请选择有效的产品形状。');}
+ let density=entries[0].density_g_cm3;
+ if(order.weight_basis==='substrate'){
+  const base={'PVC植绒':'普通PVC','PS植绒':'PS','PET植绒':'PET'}[order.material];
+  const bare=config.materials.filter(x=>x.material===base&&x.color===order.color);
+  if(!base||bare.length!==1)throw Error('裸基材参考比重缺失或重复，请核对。');
+  density=bare[0].density_g_cm3;
+ }
+ return weight*10/(area*n(density,'参考比重'));
+}
 function quote(order,config){
- if(String(order?.material||'').includes('植绒'))throw Error('植绒报价需要联网核定材料参数，请使用异步 quoteWithFlockWeight 或命令行。');
- return quoteRaw(order,config);
-}
-async function quoteWithFlockWeight(order,config,{resolveThickness=require('./flock-thickness-client.cjs').resolveThickness,resolveParameters=require('./flock-parameters-client.cjs').resolveParameters}={}){
- if(!order||typeof order!=='object'||!String(order.material||'').includes('植绒'))return quoteRaw(order,config);
- if(!Array.isArray(config?.materials))throw Error('参数文件缺少材料配置。');
- const matches=config.materials.filter(m=>m.material===order.material&&m.color===order.color);
- if(matches.length!==1)throw Error('材料与颜色参数缺失或重复，请核对。');
- let t=order.measured_thickness_mm, inferred=false, heightInferred=false;
- if(!missing(t)){n(t,'裸基材厚度');if(!missing(order.thickness_basis)&&order.thickness_basis!=='substrate')throw Error('植绒厚度须为裸基材厚度。');}
- else if(!missing(order.weight_g)){
-  if(!['finished','substrate'].includes(order.weight_basis))throw Error('请确认克重是植绒后成品还是植绒前裸片，并填写 weight_basis。');
-  n(order.length_cm,'长度');n(order.weight_g,'单件克重');const shape=order.shape||'rectangle';
-  if(!['rectangle','circle','ellipse','hexagon','triangle'].includes(shape))throw Error('请选择支持的产品形状。');
-  if(!['circle','hexagon'].includes(shape))n(order.width_cm,'宽度');
-  const input={material:order.material,color:order.color,shape,length:order.length_cm,...(!['circle','hexagon'].includes(shape)?{width:order.width_cm}:{}),dimensionUnit:'cm',weightG:order.weight_g,weightBasis:order.weight_basis};
-  t=await resolveThickness(input);inferred=true;
+ const flocked=String(order?.material||'').includes('植绒'), inferred=flocked&&missing(order.measured_thickness_mm)&&!missing(order.weight_g);
+ let r;
+ if(inferred){
+  if(!missing(order.thickness_basis)&&order.thickness_basis!=='substrate')throw Error('植绒厚度须为裸基材厚度。');
+  const t=flockWeightThickness(order,config);
+  if(!Number.isFinite(t)||t<=0||t>100)throw Error('克重估算厚度无效，请核对。');
+  r=quoteRaw({...order,measured_thickness_mm:t},config);
+  if(r.status!=='blocked'){
+   r.calculation.thicknessSource=order.weight_basis==='finished'?'flock_finished_equivalent':'flock_substrate_estimate';
+   r.assumptions.push(order.weight_basis==='finished'?'按植绒参考比重和成品克重估算等效厚度，仅用于参考报价，不是裸基材厚度。':'按裸基材参考比重和裸片克重估算厚度，需实测复核。');
+  }
  }else{
-  if(!config.allow_height_based_estimate)throw Error('请提供厚度或克重。');
-  t=heightEstimate(order.material,order.height_cm);heightInferred=true;
+  r=quoteRaw(order,config);
+  if(flocked&&missing(order.measured_thickness_mm)&&missing(order.weight_g)&&r.status!=='blocked')r.calculation.thicknessSource='heightReference';
  }
- if(!Number.isFinite(Number(t))||Number(t)<=0||Number(t)>100)throw Error('植绒裸基材厚度无效，请核对。');
- const material=await resolveParameters({material:order.material,color:order.color,thicknessMm:Number(t)});
- if(!material||!Number.isFinite(material.pricePerKg)||material.pricePerKg<=0||!Number.isFinite(material.density)||material.density<=0)throw Error('植绒材料参数无效，请稍后重试。');
- const configWithFlock={...config,materials:config.materials.map(m=>m===matches[0]?{...m,price_per_kg:material.pricePerKg,density_g_cm3:material.density}:m)};
- const result=quoteRaw(inferred?{...order,measured_thickness_mm:t}:order,configWithFlock);
- if(result.status!=='blocked'){
-  result.assumptions=result.assumptions.filter(x=>!x.includes('采用材料参考单价与比重'));
-  result.assumptions.push('植绒单价和比重按本次裸基材厚度联网核定；实际样品及材料条件需复核。');
-  if(inferred){result.assumptions.push(`按${order.weight_basis==='finished'?'植绒后成品':'植绒前裸片'}克重反推裸基材厚度，为估算值。`);result.calculation.thicknessSource='equivalent';}
-  if(heightInferred)result.calculation.thicknessSource='heightReference';
- }
- return result;
+ return r;
 }
+async function quoteWithFlockWeight(order,config){return quote(order,config);}
 if(require.main===module){(async()=>{try{const [orderFile,configFile]=process.argv.slice(2);if(!orderFile)throw Error('用法：node scripts/quote.cjs 订单.json [参数.json]');const order=JSON.parse(fs.readFileSync(orderFile,'utf8')),config=JSON.parse(fs.readFileSync(configFile||path.join(__dirname,'../assets/parameters.reference.json'),'utf8'));const result=await quoteWithFlockWeight(order,config);console.log(JSON.stringify(result,null,2));if(result.status==='blocked')process.exitCode=2;}catch(e){console.error(JSON.stringify({status:'blocked',errors:[e.message]}));process.exitCode=2;}})();}
 module.exports={quote,quoteWithFlockWeight,heightEstimate};
