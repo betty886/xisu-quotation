@@ -8,8 +8,8 @@
   const selected = name => form.querySelector(`input[name="${name}"]:checked`)?.value || '';
   const currentVariant = () => variants.get($('variant').value);
   const fmt = (number, digits = 2) => Number(number).toLocaleString('zh-CN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
-  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight'];
-  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape'};
+  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight', 'cavities'];
+  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', cavityCount: 'cavities', taxIncluded: 'tax-label'};
 
   function invalidate() {
     state.sequence++;
@@ -27,6 +27,7 @@
     $('copy-quote').disabled = true;
     $('copy-status').textContent = '';
     $('spec-summary').hidden = true;
+    $('breakdown').hidden = true;
     $('result-notes').replaceChildren(paragraph('参考价按所填规格计算，最终价格在样品及订单确认后核定。'));
     $('result-card').setAttribute('aria-busy', 'false');
     $('form-error').hidden = true;
@@ -40,9 +41,12 @@
       height: $('height').value.trim(),
       dimensionUnit: selected('dimensionUnit'),
       quantity: $('quantity').value.trim(),
-      moldType: selected('moldType'),
-      shape: $('shape').value
+      ...(selected('moldType') ? {moldType: selected('moldType')} : {}),
+      shape: $('shape').value,
+      taxIncluded: selected('taxMode') !== 'untax'
     };
+    const cavities = $('cavities').value.trim();
+    if (cavities) payload.cavityCount = cavities;
     if (!['circle', 'hexagon'].includes(payload.shape)) payload.width = $('width').value.trim();
     if (currentVariant()?.requiresThicknessWeight) {
       if (selected('measurementMode') === 'weight') {
@@ -66,7 +70,7 @@
       if (!valid || (field === 'height' ? Number(value) < 0 : Number(value) <= 0)) return {field, message: `${labels[field]}须为${field === 'height' ? '不小于 0 的数字' : '大于 0 的数字'}。`};
       if (field === 'quantity' && !Number.isSafeInteger(Number(value))) return {field, message: '订购数量请填写整数，例如 10000。'};
     }
-    if (!payload.moldType) return {field: 'moldType', message: '请选择阴模或阳模；点击旁边的说明可查看区别。'};
+    if (payload.cavityCount && (!/^\d+$/.test(payload.cavityCount) || !Number.isSafeInteger(Number(payload.cavityCount)) || Number(payload.cavityCount) < 1)) return {field: 'cavityCount', message: '穴数须为正整数；留空则按排版计算。'};
     if (currentVariant().material.includes('植绒') && payload.weightG && !['finished', 'substrate'].includes(payload.weightBasis)) return {field: 'weightBasis', message: '请选择植绒克重的称重阶段。'};
     return null;
   }
@@ -96,11 +100,14 @@
   }
   function renderQuote(quote, payload) {
     state.quote = quote; state.payload = payload;
+    const taxed = payload.taxIncluded !== false;
     $('unit-price').textContent = fmt(quote.referenceUnitPrice, 4);
     $('untaxed-unit-price').textContent = fmt(quote.untaxedUnitPrice, 4);
-    $('total-price').textContent = `¥ ${fmt(quote.total)}`;
-    $('total-label').textContent = `${fmt(quote.quantity, 0)} 件 · 含税产品金额`;
-    $('quote-status').textContent = '参考报价';
+    $('total-price').textContent = `¥ ${fmt(taxed ? quote.total : quote.untaxedTotal)}`;
+    $('total-label').textContent = `${fmt(quote.quantity, 0)} 件 · ${taxed ? '含税' : '未税'}产品金额`;
+    $('quote-status').textContent = quote.reviewLabel || '参考报价';
+    $('untaxed-option').classList.toggle('is-selected', !taxed);
+    $('taxed-option').classList.toggle('is-selected', taxed);
     const estimate = Number.isFinite(quote.thicknessMm) ? `${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）` : '';
     $('result-message').textContent = quote.thicknessSource === 'weight_estimate' ? `${currentVariant().material.includes('植绒') && payload.weightBasis === 'finished' ? '按成品克重估算等效厚度（非裸基材厚度）' : currentVariant().material.includes('植绒') ? '按裸片克重估算裸基材厚度' : '按克重反推厚度'}：${estimate}，打样后复核。` : quote.thicknessSource === 'height_estimate' ? `按高度估算厚度：${estimate}，打样后复核。` : '按本次规格计算，请核对参考参数。';
     if (Number.isFinite(quote.flockPricePerKg) && Number.isFinite(quote.flockDensity)) $('result-message').textContent += ` 植绒比重 ${fmt(quote.flockDensity, 6)}，材料单价 ${fmt(quote.flockPricePerKg, 4)} 元/kg。`;
@@ -113,11 +120,51 @@
       const label = quote.thicknessSource === 'height_estimate' ? '按高度估算厚度' : quote.thicknessSource === 'weight_estimate' ? (currentVariant().material.includes('植绒') ? (payload.weightBasis === 'finished' ? '成品克重估算的等效厚度（非裸基材厚度）' : '裸片克重估算裸基材厚度') : '按克重反推厚度') : currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度';
       addSummaryRow(label, `${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）`);
     }
-    addSummaryRow('模具', payload.moldType === 'male' ? '阳模' : '阴模');
+    addSummaryRow('模具', `${quote.moldType === 'female' ? '阴模' : '阳模'}${quote.moldDefaulted ? '（未填写，按阳模）' : ''}`);
+    renderBreakdown(quote);
     $('spec-summary').hidden = false;
     $('result-notes').replaceChildren(...quote.notes.map(paragraph));
     $('copy-quote').disabled = false;
     $('quote-announcement').textContent = `未税参考价每件 ${fmt(quote.untaxedUnitPrice, 4)} 元，含税参考价每件 ${fmt(quote.referenceUnitPrice, 4)} 元，总金额 ${fmt(quote.total)} 元。`;
+  }
+  function fillRows(element, rows) {
+    element.replaceChildren();
+    for (const [label, value] of rows) {
+      const row = document.createElement('div'); row.className = 'summary-row';
+      const name = document.createElement('span'); name.textContent = label;
+      const content = document.createElement('strong'); content.textContent = value;
+      row.append(name, content); element.append(row);
+    }
+  }
+  function renderBreakdown(quote) {
+    const layout = quote.layout, sheet = quote.perSheet, piece = quote.perPiece;
+    if (!layout || !sheet || !piece) { $('breakdown').hidden = true; return; }
+    const layoutRows = [
+      ['采用方向', layout.orientation],
+      ['横排 × 纵排', `${layout.columns} × ${layout.rows}`],
+      ['理论穴数', `${layout.theoreticalCavities} 穴`],
+      ['计价穴数', `${layout.adoptedCavities} 穴${layout.cavitySource === 'specified' ? '（指定）' : ''}`],
+      ['单穴占位', `${fmt(layout.occupiedLengthCm, 2)} × ${fmt(layout.occupiedWidthCm, 2)} cm`],
+      ['片材', `${fmt(layout.sheetLengthCm, 2)} × ${fmt(layout.sheetWidthCm, 2)} cm`]
+    ];
+    for (const item of layout.alternatives || []) layoutRows.push([item.orientation, `${item.cavities} 穴，${fmt(item.sheetLengthCm, 1)} × ${fmt(item.sheetWidthCm, 1)} cm`]);
+    fillRows($('layout-summary'), layoutRows);
+    const sheetRows = [
+      ['单张材料费', `¥ ${fmt(sheet.materialCost, 4)}`],
+      ['单张加工费', `¥ ${fmt(sheet.processingCost, 2)}（起步 ${fmt(sheet.processingBase, 2)} + 档差 ${fmt(sheet.processingIncrement, 2)}）`],
+      ['计价张数', fmt(sheet.pricingSheets, 4)],
+      ['小单张数 / 小单费', `${fmt(sheet.smallOrderSheets, 4)} 张 / ¥ ${fmt(sheet.smallOrderFee, 2)}`]
+    ];
+    if (Number.isFinite(sheet.weightKg)) sheetRows.splice(1, 0, ['单张片重', `${fmt(sheet.weightKg, 4)} kg`]);
+    fillRows($('sheet-summary'), sheetRows);
+    fillRows($('piece-summary'), [
+      ['材料', `¥ ${fmt(piece.material, 4)}`],
+      ['加工', `¥ ${fmt(piece.processing, 4)}`],
+      ['小单分摊', `¥ ${fmt(piece.smallOrder, 4)}`],
+      ['取整前未税 / 含税', `¥ ${fmt(piece.rawUntaxed, 6)} / ¥ ${fmt(piece.rawTaxed, 6)}`],
+      ['报价未税 / 含税', `¥ ${fmt(piece.untaxedUnit, 4)} / ¥ ${fmt(piece.taxedUnit, 4)}`]
+    ]);
+    $('breakdown').hidden = false;
   }
   async function calculate(explicit = false) {
     invalidate();
@@ -162,8 +209,8 @@
     $('weight-label').textContent = flocked ? '植绒单件克重' : '成品单件克重';
     $('thickness').placeholder = flocked ? '填写裸基材厚度' : '填写原片厚度';
     $('weight').placeholder = flocked ? '填写单件净重' : '填写成品单件净重';
-    $('measurement-hint').textContent = cloth ? '植布按排版面积计算，无需填写厚度和克重。产品长宽方向固定。' : mode === 'weight' ? (flocked ? '选择称重阶段。成品克重按参考比重估算等效厚度，并非裸基材厚度；裸片克重按裸基材比重估算。' : '填写成品单件净重，不含包装；按克重估算用料。') : (flocked ? '可填裸基材厚度；不填时按高度估算。植绒按参数表参考单价和比重报价。' : '厚度或克重选填；都不填时按高度估算，需复核。');
-    $('mold-hint').textContent = cloth ? '植布默认阴模；如使用阳模，请切换。' : '按模具结构选择；不确定时，先确认模具类型。';
+    $('measurement-hint').textContent = cloth ? '植布按排版面积计算，无需填写厚度和克重。产品长宽方向固定，不旋转。' : mode === 'weight' ? (flocked ? '选择称重阶段。成品克重按植绒比重估算等效厚度，会反映胶水与绒的增重；裸片克重按裸基材比重，不扣减增重。' : '填写成品单件净重，不含包装；按克重反推厚度，不归整到 5 丝。') : (flocked ? '所填厚度是裸基材厚度。植绒按材料加颜色的参考单价和比重报价，未知组合会报错。' : '厚度或克重选填；都不填时按高度估算到最近 5 丝，需复核。');
+    $('mold-hint').textContent = '不选时按阳模做初步报价，并标为待复核。阴模默认总出血 1 cm，不加高度。';
   }
   function updateShape() {
     const shape = $('shape').value;
@@ -199,10 +246,7 @@
   form.addEventListener('change', event => {
     const target = event.target;
     if (target.id === 'variant') {
-      const material = currentVariant()?.material || '';
-      if (material === '植布' && state.previousMaterial !== '植布') $('mold-female').checked = true;
-      if (state.previousMaterial === '植布' && material !== '植布') form.querySelectorAll('input[name="moldType"]').forEach(input => input.checked = false);
-      state.previousMaterial = material;
+      state.previousMaterial = currentVariant()?.material || '';
       updateMeasurement();
     }
     if (target.name === 'measurementMode') updateMeasurement();
@@ -227,7 +271,8 @@
     const thicknessText = quote.thicknessSource !== 'not_required' && Number.isFinite(quote.thicknessMm) ? `${thicknessLabel}：${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）` : '按面积报价';
     const weightLabel = payload.weightBasis === 'substrate' ? '植绒前裸片单件克重' : payload.weightBasis === 'finished' ? '植绒后成品单件克重' : '成品单件克重';
     const measurement = payload.weightG ? `${weightLabel}：${payload.weightG} g\n${thicknessText}` : thicknessText;
-    const text = ['吸塑定制参考报价', `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${payload.moldType === 'male' ? '阳模' : '阴模'}`, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `含税产品总额：¥ ${fmt(quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].join('\n');
+    const layoutLine = quote.layout ? `排版：${quote.layout.orientation}，${quote.layout.columns}×${quote.layout.rows}，计价 ${quote.layout.adoptedCavities} 穴，片材 ${fmt(quote.layout.sheetLengthCm, 2)}×${fmt(quote.layout.sheetWidthCm, 2)} cm` : '';
+    const text = ['吸塑定制参考报价', quote.reviewLabel, `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${quote.moldType === 'female' ? '阴模' : '阳模'}${quote.moldDefaulted ? '（未填写，按阳模）' : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
     try {
       await navigator.clipboard.writeText(text);
       if (requestId === state.sequence) $('copy-status').textContent = '报价信息已复制';
@@ -254,6 +299,10 @@
       showError({message: '报价服务未连接成功，请刷新页面重试。'}, false);
     }
   }
+  $('logout').addEventListener('click', async () => {
+    await fetch('./api/logout', {method: 'POST'}).catch(() => {});
+    location.replace('./');
+  });
   updateMeasurement();
   updateShape();
   loadOptions();
