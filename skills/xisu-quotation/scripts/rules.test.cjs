@@ -90,6 +90,7 @@ assert.equal(pet.calculation.sheetProcessingCost, 1.4);
 assert.equal(pet.calculation.smallOrderFee, 500);
 assert.equal(pet.calculation.materialPrice, 6.7);
 assert.equal(pet.calculation.density, 1.4);
+assert.equal(config.minimum_margin_rate, 0);
 assert.equal(pet.calculation.targetMargin, 0);
 assert.equal(pet.calculation.minMargin, 0);
 assert.equal(pet.calculation.materialTaxFactor, 1.08);
@@ -188,10 +189,29 @@ for (const missingMold of [null, undefined, '']) {
   assert.equal(assumed.mold_defaulted, true);
   assert.equal(assumed.review_label, '初步报价、待复核');
 }
-for (const badCavity of [0, -1, 1.5, false, 'abc', Infinity]) {
-  const result = quote({...whitePet, cavity_count: badCavity}, config);
-  assert.equal(result.status, 'blocked', `无效穴数 ${badCavity} 不能按排版穴数继续报价`);
-  assert.notEqual(result.taxed_unit, pet.taxed_unit);
+const customBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: 2}, config);
+assert.equal(customBleed.review_label, '初步报价、待复核');
+assert.equal(customBleed.status, 'pending_review');
+assert.match(customBleed.assumptions.join(''), /出血/);
+assert.equal(customBleed.calculation.layoutAllowanceCm, 2);
+assert.equal(customBleed.calculation.layoutAllowanceSource, 'bleed');
+assert.deepEqual([customBleed.calculation.layout.occupiedLengthCm, customBleed.calculation.layout.occupiedWidthCm].sort((a, b) => a - b), [12, 22]);
+const defaultBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1}, config);
+assert.equal(defaultBleed.calculation.layoutAllowanceCm, 1);
+assert.equal(defaultBleed.review_label, null);
+const blankBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: ''}, config);
+assert.equal(blankBleed.calculation.layoutAllowanceCm, 1);
+assert.equal(blankBleed.review_label, null);
+const zeroBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: 0}, config);
+assert.equal(zeroBleed.calculation.layoutAllowanceCm, 0);
+assert.equal(zeroBleed.review_label, '初步报价、待复核');
+assert.deepEqual([zeroBleed.calculation.layout.occupiedLengthCm, zeroBleed.calculation.layout.occupiedWidthCm].sort((a, b) => a - b), [10, 20]);
+const maleWithBleed = quote({...whitePet, total_bleed_cm: 2}, config);
+assert.equal(maleWithBleed.review_label, '初步报价、待复核');
+assert.equal(maleWithBleed.calculation.layoutAllowanceSource, 'height');
+assert.equal(maleWithBleed.calculation.layoutAllowanceCm, whitePet.height_cm);
+for (const bad of [-1, false, true, 'abc', Infinity, NaN]) {
+  assert.throws(() => quote({...whitePet, mold_type: 'female', total_bleed_cm: bad}, config), /非负数/, `无效出血 ${bad} 不能改用默认值`);
 }
 
 const flock = priceOf('PET植绒', '白色');

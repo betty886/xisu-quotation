@@ -1,0 +1,10 @@
+{
+  "name": "xisu-quotation",
+  "private": true,
+  "scripts": {
+    "test": "node skills/xisu-quotation/scripts/quote.test.cjs && node skills/xisu-quotation/scripts/flock-weight.test.cjs && node skills/xisu-quotation/scripts/rules.test.cjs && node skills/xisu-quotation/scripts/web-server.test.cjs && node skills/xisu-quotation/scripts/web-ui.test.cjs && node skills/xisu-quotation/scripts/flock-fixed-ui.test.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}

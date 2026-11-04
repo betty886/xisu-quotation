@@ -14,7 +14,7 @@ const staticFiles = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/mold-guide.svg', ['mold-guide.svg', 'image/svg+xml']]
 ]);
-const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape','cavityCount','taxIncluded']);
+const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape','taxIncluded']);
 const publicFiles = new Map([
   ['/login.js', ['login.js', 'text/javascript; charset=utf-8']],
   ['/login.html', ['login.html', 'text/html; charset=utf-8']],
@@ -61,12 +61,11 @@ async function calculate(payload, config, options={}) {
   const quantity=num(payload.quantity,'订单数量','quantity',{integer:true,max:100000000});
   const thickness=num(payload.thicknessMm,'厚度','thicknessMm',{optional:true,max:100});
   const weight=num(payload.weightG,'单件克重','weightG',{optional:true,max:1000000});
-  const cavityCount=num(payload.cavityCount,'穴数','cavityCount',{optional:true,integer:true,max:100000});
   const taxIncluded=payload.taxIncluded !== false;
   if(selected.material.includes('植绒') && thickness===null && weight!==null && !['finished','substrate'].includes(payload.weightBasis))throw new RequestError('请选择植绒克重的称重阶段。','weightBasis');
   const order={material:selected.material,color:selected.color,shape,length_cm:l/div,width_cm:w===null?undefined:w/div,height_cm:h/div,quantity,
     ...(moldMissing?{}:{mold_type:payload.moldType}),
-    ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}), ...(cavityCount!==null?{cavity_count:cavityCount}:{}), ...(selected.material.includes('植绒')&&thickness===null&&weight!==null?{weight_basis:payload.weightBasis}:{}),tax_included:taxIncluded};
+    ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}), ...(selected.material.includes('植绒')&&thickness===null&&weight!==null?{weight_basis:payload.weightBasis}:{}),tax_included:taxIncluded};
   let result;
   try { result=await quoteWithFlockWeight(order,config); } catch(e) {throw new RequestError(e.message);}
   if(result.status==='blocked'||![result.taxed_unit,result.untaxed_unit,result.taxed_total].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>0)) throw new RequestError(result.errors?.join('；')||'该规格暂无法自动报价，请核对输入。');

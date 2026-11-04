@@ -8,8 +8,8 @@
   const selected = name => form.querySelector(`input[name="${name}"]:checked`)?.value || '';
   const currentVariant = () => variants.get($('variant').value);
   const fmt = (number, digits = 2) => Number(number).toLocaleString('zh-CN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
-  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight', 'cavities'];
-  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', cavityCount: 'cavities', taxIncluded: 'tax-label'};
+  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight'];
+  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', taxIncluded: 'tax-label'};
 
   function invalidate() {
     state.sequence++;
@@ -45,8 +45,6 @@
       shape: $('shape').value,
       taxIncluded: selected('taxMode') !== 'untax'
     };
-    const cavities = $('cavities').value.trim();
-    if (cavities) payload.cavityCount = cavities;
     if (!['circle', 'hexagon'].includes(payload.shape)) payload.width = $('width').value.trim();
     if (currentVariant()?.requiresThicknessWeight) {
       if (selected('measurementMode') === 'weight') {
@@ -70,7 +68,6 @@
       if (!valid || (field === 'height' ? Number(value) < 0 : Number(value) <= 0)) return {field, message: `${labels[field]}须为${field === 'height' ? '不小于 0 的数字' : '大于 0 的数字'}。`};
       if (field === 'quantity' && !Number.isSafeInteger(Number(value))) return {field, message: '订购数量请填写整数，例如 10000。'};
     }
-    if (payload.cavityCount && (!/^\d+$/.test(payload.cavityCount) || !Number.isSafeInteger(Number(payload.cavityCount)) || Number(payload.cavityCount) < 1)) return {field: 'cavityCount', message: '穴数须为正整数；留空则按排版计算。'};
     if (currentVariant().material.includes('植绒') && payload.weightG && !['finished', 'substrate'].includes(payload.weightBasis)) return {field: 'weightBasis', message: '请选择植绒克重的称重阶段。'};
     return null;
   }
@@ -143,8 +140,7 @@
     const layoutRows = [
       ['采用方向', layout.orientation],
       ['横排 × 纵排', `${layout.columns} × ${layout.rows}`],
-      ['理论穴数', `${layout.theoreticalCavities} 穴`],
-      ['计价穴数', `${layout.adoptedCavities} 穴${layout.cavitySource === 'specified' ? '（指定）' : ''}`],
+      ['穴数', `${layout.theoreticalCavities} 穴`],
       ['单穴占位', `${fmt(layout.occupiedLengthCm, 2)} × ${fmt(layout.occupiedWidthCm, 2)} cm`],
       ['片材', `${fmt(layout.sheetLengthCm, 2)} × ${fmt(layout.sheetWidthCm, 2)} cm`]
     ];
@@ -272,7 +268,7 @@
     const thicknessText = quote.thicknessSource !== 'not_required' && Number.isFinite(quote.thicknessMm) ? `${thicknessLabel}：${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）` : '按面积报价';
     const weightLabel = payload.weightBasis === 'substrate' ? '植绒前裸片单件克重' : payload.weightBasis === 'finished' ? '植绒后成品单件克重' : '成品单件克重';
     const measurement = payload.weightG ? `${weightLabel}：${payload.weightG} g\n${thicknessText}` : thicknessText;
-    const layoutLine = quote.layout ? `排版：${quote.layout.orientation}，${quote.layout.columns}×${quote.layout.rows}，计价 ${quote.layout.adoptedCavities} 穴，片材 ${fmt(quote.layout.sheetLengthCm, 2)}×${fmt(quote.layout.sheetWidthCm, 2)} cm` : '';
+    const layoutLine = quote.layout ? `排版：${quote.layout.orientation}，${quote.layout.columns}×${quote.layout.rows}，${quote.layout.theoreticalCavities} 穴，片材 ${fmt(quote.layout.sheetLengthCm, 2)}×${fmt(quote.layout.sheetWidthCm, 2)} cm` : '';
     const copiedMold = quote.moldType === 'female' ? '阴模' : '阳模';
     const text = ['吸塑定制参考报价', quote.reviewLabel, `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${copiedMold}${quote.moldDefaulted ? `（未填写，按${copiedMold}）` : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
     try {

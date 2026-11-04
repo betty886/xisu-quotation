@@ -161,7 +161,6 @@ const defaultRules={processingTiers:[]};
     r.layoutAllowanceSource=moldType==='female'?'bleed':'height';
     r.layoutAllowanceCm=moldType==='female'?bleed:height;
     const quantity=number(input,'quantity','订单数量（件）',e,{positive:true,integer:true});
-    const specifiedCavities=number(input,'cavityCount','指定穴数',e,{positive:true,integer:true,optional:true});
     const reject=number(input,'rejectRate','额外不良率（%）',e,{min:0,max:99,fallback:0});
     const areaPriced=input.material==='植布';
     const rawThickness=input.thicknessMm;
@@ -223,11 +222,10 @@ const defaultRules={processingTiers:[]};
     r.layout=alternatives.slice().sort((a,b)=>b.cavities-a.cavities || a.areaCm2-b.areaCm2)[0];
     const layout=r.layout;
     if (layout.cavities<1 || !Number.isSafeInteger(layout.cavities) || layout.sheetLengthCm>settings.maxLengthCm+1e-9 || layout.sheetWidthCm>settings.maxWidthCm+1e-9) {e.push('产品无法在片材尺寸内有效排版，请核对尺寸。');return finiteResult(r);}
-    const adoptedCavities=specifiedCavities??layout.cavities;
+    const adoptedCavities=layout.cavities;
     r.theoreticalCavities=layout.cavities;
-    r.adoptedCavities=adoptedCavities;
-    r.cavitySource=specifiedCavities==null?'layout':'specified';
-    if(specifiedCavities!=null)r.warnings.push(specifiedCavities===layout.cavities?'指定穴数与理论排版一致。':'已按指定穴数分摊张数和加工费档位；片材尺寸仍按理论排版，未同时改拉片尺寸。');
+    r.adoptedCavities=layout.cavities;
+    r.cavitySource='layout';
     const processingTier=areaPriced?{label:'植布固定加工费',baseFee:clothProcessing,increment:0,referenceFee:clothProcessing,effectiveFee:clothProcessing}:processingFeeForMaterial(adoptedCavities,material,rules.processingTiers||defaultRules.processingTiers);
     if (!processingTier) {e.push('当前排版数量没有唯一加工费档位（仅支持1–100个），请检查加工费参数。');return finiteResult(r);}
     r.thicknessSource=areaPriced?'area':thickness===null?'equivalent':'measured';

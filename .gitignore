@@ -14,4 +14,8 @@ outputs/
 .DS_Store
 Thumbs.db
 __pycache__/
+node_modules/
+test-results/
+playwright-report/
+blob-report/
 
