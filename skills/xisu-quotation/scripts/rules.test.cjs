@@ -271,4 +271,30 @@ assert.equal(clothMale.calculation.layout.occupiedLengthCm, 38);
 assert.equal(clothMale.calculation.layout.occupiedWidthCm, 18);
 assert.equal(clothMale.calculation.sheetProcessingCost, 3);
 
-console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入与白 PET 回归');
+const tactileOrder = (material, color) => ({
+  shape: 'rectangle', length_cm: 10, width_cm: 10, height_cm: 1, mold_type: 'female',
+  material, color, quantity: 100, measured_thickness_mm: 0.5, tax_included: true
+});
+for (const [material, color] of [['触感PET', '黑色'], ['触感PET', '彩色'], ['镀金PET', '彩色']]) {
+  const row = priceOf(material, color);
+  assert.equal(row.processing_base_per_sheet, 1.5, `${material}/${color} 参考参数 processing_base_per_sheet`);
+  const fromFile = square(1, {material, color, quantity: 100});
+  assert.equal(fromFile.calculation.adoptedCavities, 1);
+  assert.equal(fromFile.calculation.baseSheetProcessingCost, row.processing_base_per_sheet);
+  assert.equal(fromFile.calculation.sheetProcessingCost, row.processing_base_per_sheet);
+  const bumped = machineForColumns(1);
+  bumped.default_processing_per_sheet = 9.9;
+  bumped.materials.find(item => item.material === material && item.color === color).processing_base_per_sheet = 2.25;
+  const fromEdit = quote(tactileOrder(material, color), bumped);
+  assert.equal(fromEdit.calculation.baseSheetProcessingCost, 2.25, `${material}/${color} 必须读取材料行，不能写死 1.50`);
+  assert.equal(fromEdit.calculation.sheetProcessingCost, 2.25);
+  assert.notEqual(fromEdit.calculation.sheetProcessingCost, fromFile.calculation.sheetProcessingCost);
+  const stripped = machineForColumns(1);
+  delete stripped.materials.find(item => item.material === material && item.color === color).processing_base_per_sheet;
+  stripped.default_processing_per_sheet = 3.3;
+  const fromDefault = quote(tactileOrder(material, color), stripped);
+  assert.equal(fromDefault.calculation.baseSheetProcessingCost, 3.3, `${material}/${color} 缺字段时应回退 default_processing_per_sheet，而不是写死 1.50`);
+  assert.equal(fromDefault.calculation.sheetProcessingCost, 3.3);
+}
+
+console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入、白 PET 回归与触感/镀金加工费读取配置');
