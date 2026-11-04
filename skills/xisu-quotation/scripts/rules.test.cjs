@@ -271,4 +271,18 @@ assert.equal(clothMale.calculation.layout.occupiedLengthCm, 38);
 assert.equal(clothMale.calculation.layout.occupiedWidthCm, 18);
 assert.equal(clothMale.calculation.sheetProcessingCost, 3);
 
+for (const [material, color] of [['触感PET', '黑色'], ['触感PET', '彩色'], ['镀金PET', '彩色']]) {
+  const row = priceOf(material, color);
+  assert.equal(row.processing_base_per_sheet, 1.5, `${material} ${color} 的基础加工费应配置为 1.50`);
+  const fromConfig = square(1, {material, color, quantity: 100});
+  assert.equal(fromConfig.calculation.baseSheetProcessingCost, row.processing_base_per_sheet);
+  assert.equal(fromConfig.calculation.sheetProcessingCost, row.processing_base_per_sheet);
+  const custom = structuredClone(config);
+  custom.materials.find(item => item.material === material && item.color === color).processing_base_per_sheet = 2.25;
+  custom.machine = {...custom.machine, max_length_cm: 15, max_width_cm: 15};
+  const changed = quote({shape: 'rectangle', length_cm: 10, width_cm: 10, height_cm: 1, mold_type: 'female', material, color, quantity: 100, measured_thickness_mm: 0.5, tax_included: true}, custom);
+  assert.equal(changed.calculation.sheetProcessingCost, 2.25, `${material} ${color} 应读取配置中的加工费，而不是写死 1.50`);
+  assert.notEqual(changed.calculation.sheetProcessingCost, 1.5);
+}
+
 console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入与白 PET 回归');
