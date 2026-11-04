@@ -222,7 +222,11 @@ const defaultRules={processingTiers:[]};
     r.layout=alternatives.slice().sort((a,b)=>b.cavities-a.cavities || a.areaCm2-b.areaCm2)[0];
     const layout=r.layout;
     if (layout.cavities<1 || !Number.isSafeInteger(layout.cavities) || layout.sheetLengthCm>settings.maxLengthCm+1e-9 || layout.sheetWidthCm>settings.maxWidthCm+1e-9) {e.push('产品无法在片材尺寸内有效排版，请核对尺寸。');return finiteResult(r);}
-    const processingTier=areaPriced?{label:'植布固定加工费',baseFee:clothProcessing,increment:0,referenceFee:clothProcessing,effectiveFee:clothProcessing}:processingFeeForMaterial(layout.cavities,material,rules.processingTiers||defaultRules.processingTiers);
+    const adoptedCavities=layout.cavities;
+    r.theoreticalCavities=layout.cavities;
+    r.adoptedCavities=layout.cavities;
+    r.cavitySource='layout';
+    const processingTier=areaPriced?{label:'植布固定加工费',baseFee:clothProcessing,increment:0,referenceFee:clothProcessing,effectiveFee:clothProcessing}:processingFeeForMaterial(adoptedCavities,material,rules.processingTiers||defaultRules.processingTiers);
     if (!processingTier) {e.push('当前排版数量没有唯一加工费档位（仅支持1–100个），请检查加工费参数。');return finiteResult(r);}
     r.thicknessSource=areaPriced?'area':thickness===null?'equivalent':'measured';
     r.thicknessMm=areaPriced?null:thickness===null?weight/geometry.areaCm2/density*10:thickness;
@@ -236,17 +240,17 @@ const defaultRules={processingTiers:[]};
     r.processingReferenceFee=processingTier.referenceFee;
     r.processingMultiplier=processingTier.baseFee>0?processingTier.effectiveFee/processingTier.baseFee:null;
     r.sheetProcessingCost=processingTier.effectiveFee;
-    r.baseUnit=(r.sheetMaterialCost+r.sheetProcessingCost)/layout.cavities;
-    r.theoreticalSheets=quantity/layout.cavities/(1-reject/100);
+    r.baseUnit=(r.sheetMaterialCost+r.sheetProcessingCost)/adoptedCavities;
+    r.theoreticalSheets=quantity/adoptedCavities/(1-reject/100);
     r.productionSheets=Math.ceil(r.theoreticalSheets);
     r.warnings.push(moldType==='female'?`阴模排版按产品外形长宽各增加总出血位 ${bleed.toFixed(3)} cm，不叠加产品高度。`:`阳模排版按产品外形长宽各增加产品高度 ${height.toFixed(3)} cm。`);
     r.warnings.push('材料和成型加工保持原公式的连续张数计价；整张生产数仅供排产参考。边料已计入片材面积，不重复加损耗。');
-    r.smallOrderCount=quantity/layout.cavities;
+    r.smallOrderCount=quantity/adoptedCavities;
     const matches=quantityRows.filter(q=>(q.min===1?0:q.min)<=r.smallOrderCount && r.smallOrderCount<q.max+1);
     if(matches.length!==1){e.push('小单张数没有唯一已确认的费用档位，请检查张数区间。');return finiteResult(r);}
     r.smallOrderFee=matches[0].fee;
-    r.warnings.push('小单数＝总数量 '+quantity+' ÷ 排版个数 '+layout.cavities+'＝'+r.smallOrderCount.toFixed(4)+'张；本单小单费 '+r.smallOrderFee+'元（整单一次）。');
-    r.packPerBox=volumeMode?(pack===null?Math.max(1,Math.floor(basePack*layout.cavities/baseCavities)):pack):pack;
+    r.warnings.push('小单数＝总数量 '+quantity+' ÷ 采用穴数 '+adoptedCavities+'＝'+r.smallOrderCount.toFixed(4)+'张；本单小单费 '+r.smallOrderFee+'元（整单一次）。');
+    r.packPerBox=volumeMode?(pack===null?Math.max(1,Math.floor(basePack*adoptedCavities/baseCavities)):pack):pack;
     r.boxes=volumeMode?Math.ceil(quantity/r.packPerBox):null;
     r.cartonLengthCm=cartonLength;r.cartonWidthCm=cartonWidth;r.cartonHeightCm=cartonHeight;
     r.cartonVolumeM3=cartonVolume;r.freightVolumeM3=volumeMode?r.boxes*cartonVolume:null;r.freightRatePerM3=ratePerM3;
@@ -255,7 +259,7 @@ const defaultRules={processingTiers:[]};
     r.freightTotal=mode==='自提'?0:mode==='手填'?manualFreight:round2(r.freightVolumeM3*ratePerM3);
     r.breakdown=[
       {label:'片材材料（含边料及额外不良）',amount:r.sheetMaterialCost*r.theoreticalSheets},
-      {label:areaPriced?`植布固定加工（${r.sheetProcessingCost.toFixed(2)}元/张，含额外不良）`:`成型加工（${layout.cavities}个排版，材料起步${r.baseSheetProcessingCost.toFixed(2)}＋穴数差额${r.processingIncrement.toFixed(2)}＝${r.sheetProcessingCost.toFixed(2)}元/张，含额外不良）`,amount:r.sheetProcessingCost*r.theoreticalSheets},
+      {label:areaPriced?`植布固定加工（${r.sheetProcessingCost.toFixed(2)}元/张，含额外不良）`:`成型加工（${adoptedCavities}个排版，材料起步${r.baseSheetProcessingCost.toFixed(2)}＋穴数差额${r.processingIncrement.toFixed(2)}＝${r.sheetProcessingCost.toFixed(2)}元/张，含额外不良）`,amount:r.sheetProcessingCost*r.theoreticalSheets},
       {label:'小单费（每单一次）',amount:r.smallOrderFee},
       ...fees.map(({label,amount})=>({label,amount})),
       {label:volumeMode?`运费（${r.boxes}箱 × ${r.cartonVolumeM3.toFixed(4)}m³/箱 × ${r.freightRatePerM3.toFixed(2)}元/m³）`:'运费',amount:r.freightTotal}

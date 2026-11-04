@@ -261,7 +261,7 @@
   ],
   "tax_multiplier": 1.08,
   "default_extra_margin_rate": 0,
-  "minimum_margin_rate": null,
+  "minimum_margin_rate": 0,
   "allow_preliminary_male_mold_default": true,
   "allow_height_based_estimate": true,
   "profile_version": "2026-10-30",

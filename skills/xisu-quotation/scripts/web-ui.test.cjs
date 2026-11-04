@@ -2,12 +2,14 @@
 const {chromium, expect}=require('@playwright/test');
 const {createServer}=require('./web-server.cjs');
 (async()=>{
- const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;
- const browser=await chromium.launch({channel:'msedge',headless:true});
+ const password='test-only-gate';const server=createServer({password});await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  try{
   for(const viewport of [{width:1365,height:900},{width:390,height:844}]){
    const p=await browser.newPage({viewport});await p.addInitScript(()=>{window.__copied='';Object.defineProperty(navigator,'clipboard',{value:{writeText:async s=>{window.__copied=s;}}});});
-   await p.goto(base);await expect(p.locator('#variant')).toBeEnabled();
+   await p.goto(base);await expect(p.locator('#password')).toBeVisible();await expect(p.locator('#variant')).toHaveCount(0);
+   await p.locator('#password').fill('wrong-password');await p.locator('#login').click();await expect(p.locator('#login-error')).toBeVisible();await expect(p.locator('#login-error')).toContainText('口令');
+   await p.locator('#password').fill(password);await p.locator('#login').click();await expect(p.locator('#variant')).toBeEnabled();
    await p.locator('#variant').selectOption({label:'PET透明'});
    for(const [id,value] of Object.entries({length:'20',width:'10',height:'2',quantity:'10000'}))await p.locator('#'+id).fill(value);
    await p.locator('label').filter({has:p.locator('#mold-male')}).click();await p.locator('#calculate').click();

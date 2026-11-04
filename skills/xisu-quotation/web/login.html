@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>内部吸塑报价 · 口令</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./login.js" defer></script>
+</head>
+<body>
+  <main class="gate">
+    <form class="gate-card" id="login-form">
+      <p class="eyebrow">INTERNAL QUOTE</p>
+      <h1>内部吸塑报价</h1>
+      <p>请输入内部口令后计算排版和单价。口令来自环境变量 QUOTE_PASSWORD，不写在页面里。</p>
+      <div class="field">
+        <label for="password">内部口令</label>
+        <div class="input-wrap"><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+      </div>
+      <p id="login-error" class="form-error" hidden>口令不正确。</p>
+      <button id="login" class="primary-button" type="submit">进入报价</button>
+    </form>
+  </main>
+</body>
+</html>
