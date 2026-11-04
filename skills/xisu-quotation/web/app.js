@@ -120,7 +120,8 @@
       const label = quote.thicknessSource === 'height_estimate' ? '按高度估算厚度' : quote.thicknessSource === 'weight_estimate' ? (currentVariant().material.includes('植绒') ? (payload.weightBasis === 'finished' ? '成品克重估算的等效厚度（非裸基材厚度）' : '裸片克重估算裸基材厚度') : '按克重反推厚度') : currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度';
       addSummaryRow(label, `${fmt(quote.thicknessMm, 3)} mm（${fmt(quote.thicknessMm * 100, 2)} 丝）`);
     }
-    addSummaryRow('模具', `${quote.moldType === 'female' ? '阴模' : '阳模'}${quote.moldDefaulted ? '（未填写，按阳模）' : ''}`);
+    const moldName = quote.moldType === 'female' ? '阴模' : '阳模';
+    addSummaryRow('模具', `${moldName}${quote.moldDefaulted ? `（未填写，按${moldName}）` : ''}`);
     renderBreakdown(quote);
     $('spec-summary').hidden = false;
     $('result-notes').replaceChildren(...quote.notes.map(paragraph));
@@ -210,7 +211,7 @@
     $('thickness').placeholder = flocked ? '填写裸基材厚度' : '填写原片厚度';
     $('weight').placeholder = flocked ? '填写单件净重' : '填写成品单件净重';
     $('measurement-hint').textContent = cloth ? '植布按排版面积计算，无需填写厚度和克重。产品长宽方向固定，不旋转。' : mode === 'weight' ? (flocked ? '选择称重阶段。成品克重按植绒比重估算等效厚度，会反映胶水与绒的增重；裸片克重按裸基材比重，不扣减增重。' : '填写成品单件净重，不含包装；按克重反推厚度，不归整到 5 丝。') : (flocked ? '所填厚度是裸基材厚度。植绒按材料加颜色的参考单价和比重报价，未知组合会报错。' : '厚度或克重选填；都不填时按高度估算到最近 5 丝，需复核。');
-    $('mold-hint').textContent = '不选时按阳模做初步报价，并标为待复核。阴模默认总出血 1 cm，不加高度。';
+    $('mold-hint').textContent = cloth ? '植布不选模具时按阴模做初步报价，并标为待复核。阴模总出血 1 cm，不加高度，不旋转。' : '不选时按阳模做初步报价，并标为待复核。阴模默认总出血 1 cm，不加高度。';
   }
   function updateShape() {
     const shape = $('shape').value;
@@ -272,7 +273,8 @@
     const weightLabel = payload.weightBasis === 'substrate' ? '植绒前裸片单件克重' : payload.weightBasis === 'finished' ? '植绒后成品单件克重' : '成品单件克重';
     const measurement = payload.weightG ? `${weightLabel}：${payload.weightG} g\n${thicknessText}` : thicknessText;
     const layoutLine = quote.layout ? `排版：${quote.layout.orientation}，${quote.layout.columns}×${quote.layout.rows}，计价 ${quote.layout.adoptedCavities} 穴，片材 ${fmt(quote.layout.sheetLengthCm, 2)}×${fmt(quote.layout.sheetWidthCm, 2)} cm` : '';
-    const text = ['吸塑定制参考报价', quote.reviewLabel, `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${quote.moldType === 'female' ? '阴模' : '阳模'}${quote.moldDefaulted ? '（未填写，按阳模）' : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
+    const copiedMold = quote.moldType === 'female' ? '阴模' : '阳模';
+    const text = ['吸塑定制参考报价', quote.reviewLabel, `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${copiedMold}${quote.moldDefaulted ? `（未填写，按${copiedMold}）` : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
     try {
       await navigator.clipboard.writeText(text);
       if (requestId === state.sequence) $('copy-status').textContent = '报价信息已复制';

@@ -12,7 +12,7 @@ function quoteRaw(order,config){
  const entry=cloth?config.cloth:entries[0];if(cloth&&!['白色','黑色','其他'].includes(order.color))throw Error('植布颜色请选择白色、黑色或其他。');
  const density=cloth?null:n(entry.density_g_cm3,'材料比重'),price=n(cloth?entry.price_per_m2:entry.price_per_kg,'材料单价'),base=n(cloth?entry.processing_per_sheet:(entry.processing_base_per_sheet??config.default_processing_per_sheet),'加工费',{zero:true}),tax=n(config.tax_multiplier,'含税系数');if(tax<1)throw Error('含税系数不能小于1。');
  let thickness=order.measured_thickness_mm,weight=order.weight_g;for(const [name,value] of [['厚度',thickness],['克重',weight]])if(!missing(value))n(value,name);
- let assumed=[];let mold=order.mold_type;if(missing(mold)){if(!config.allow_preliminary_male_mold_default)throw Error('请选择模具类型。');mold='male';assumed.push('未提供模具，暂按阳模计算。');}
+ let assumed=[];let mold=order.mold_type;if(missing(mold)){if(!config.allow_preliminary_male_mold_default&&!cloth)throw Error('请选择模具类型。');mold=cloth?'female':'male';assumed.push('未提供模具，暂按'+(cloth?'阴模':'阳模')+'计算。');}
  if(!['male','female'].includes(mold))throw Error('模具类型请选择 male 或 female。');
  if(!cloth&&missing(thickness)&&missing(weight)){if(!config.allow_height_based_estimate)throw Error('请提供厚度或克重。');thickness=heightEstimate(order.material,order.height_cm);assumed.push('厚度按高度估算，仅供参考。');}
  if(!cloth&&order.material.includes('植绒')){

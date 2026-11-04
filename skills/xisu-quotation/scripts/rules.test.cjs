@@ -223,18 +223,30 @@ const missingPrice = structuredClone(config);
 delete missingPrice.materials.find(item => item.material === 'PET' && item.color === '白色').price_per_kg;
 assert.throws(() => quote(whitePet, missingPrice), /单价/);
 
-const cloth = quote({material: '植布', color: '白色', length_cm: 35, width_cm: 15, height_cm: 3, quantity: 10000}, config);
-assert.equal(cloth.calculation.moldType, 'male');
-assert.equal(cloth.mold_defaulted, true);
-assert.equal(cloth.review_label, '初步报价、待复核');
-assert.equal(cloth.calculation.alternatives.length, 1);
-assert.equal(cloth.calculation.layout.occupiedLengthCm, 38);
-assert.equal(cloth.calculation.layout.occupiedWidthCm, 18);
-assert.ok(cloth.calculation.layout.sheetLengthCm <= 110 && cloth.calculation.layout.sheetWidthCm <= 70);
-const clothFemale = quote({material: '植布', color: '白色', length_cm: 35, width_cm: 15, height_cm: 3, quantity: 10000, mold_type: 'female'}, config);
-assert.equal(clothFemale.calculation.moldType, 'female');
-assert.equal(clothFemale.calculation.layout.occupiedLengthCm, 36);
-assert.equal(clothFemale.review_label, null);
-assert.equal(clothFemale.calculation.sheetProcessingCost, 3);
+for (const missingMold of [undefined, null, '']) {
+  const cloth = quote({material: '植布', color: '白色', length_cm: 35, width_cm: 15, height_cm: 3, quantity: 10000, mold_type: missingMold}, config);
+  assert.equal(cloth.calculation.moldType, 'female', '植布缺模具应默认阴模');
+  assert.equal(cloth.mold_defaulted, true);
+  assert.equal(cloth.review_label, '初步报价、待复核');
+  assert.match(cloth.assumptions.join(''), /阴模/);
+  assert.equal(cloth.calculation.layoutAllowanceSource, 'bleed');
+  assert.equal(cloth.calculation.layoutAllowanceCm, 1);
+  assert.equal(cloth.calculation.alternatives.length, 1);
+  assert.equal(cloth.calculation.layout.occupiedLengthCm, 36);
+  assert.equal(cloth.calculation.layout.occupiedWidthCm, 16);
+  assert.equal(cloth.calculation.sheetProcessingCost, 3);
+  assert.ok(cloth.calculation.layout.sheetLengthCm <= 110 && cloth.calculation.layout.sheetWidthCm <= 70);
+}
+const clothShort = quote({material: '植布', color: '白色', length_cm: 35, width_cm: 15, height_cm: 1, quantity: 10000}, config);
+assert.equal(clothShort.calculation.moldType, 'female');
+assert.equal(clothShort.calculation.layout.occupiedLengthCm, 36);
+assert.equal(clothShort.calculation.layout.occupiedWidthCm, 16);
+assert.equal(clothShort.calculation.layout.cavities, 8);
+const clothMale = quote({material: '植布', color: '白色', length_cm: 35, width_cm: 15, height_cm: 3, quantity: 10000, mold_type: 'male'}, config);
+assert.equal(clothMale.calculation.moldType, 'male');
+assert.equal(clothMale.review_label, null);
+assert.equal(clothMale.calculation.layout.occupiedLengthCm, 38);
+assert.equal(clothMale.calculation.layout.occupiedWidthCm, 18);
+assert.equal(clothMale.calculation.sheetProcessingCost, 3);
 
 console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入与白 PET 回归');
