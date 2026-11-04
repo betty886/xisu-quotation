@@ -202,16 +202,18 @@ assert.equal(defaultBleed.review_label, null);
 const blankBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: ''}, config);
 assert.equal(blankBleed.calculation.layoutAllowanceCm, 1);
 assert.equal(blankBleed.review_label, null);
-const zeroBleed = quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: 0}, config);
-assert.equal(zeroBleed.calculation.layoutAllowanceCm, 0);
-assert.equal(zeroBleed.review_label, '初步报价、待复核');
-assert.deepEqual([zeroBleed.calculation.layout.occupiedLengthCm, zeroBleed.calculation.layout.occupiedWidthCm].sort((a, b) => a - b), [10, 20]);
-const maleWithBleed = quote({...whitePet, total_bleed_cm: 2}, config);
-assert.equal(maleWithBleed.review_label, '初步报价、待复核');
-assert.equal(maleWithBleed.calculation.layoutAllowanceSource, 'height');
-assert.equal(maleWithBleed.calculation.layoutAllowanceCm, whitePet.height_cm);
-for (const bad of [-1, false, true, 'abc', Infinity, NaN]) {
-  assert.throws(() => quote({...whitePet, mold_type: 'female', total_bleed_cm: bad}, config), /非负数/, `无效出血 ${bad} 不能改用默认值`);
+for (const bad of [0, '0', -1, false, true, 'abc', Infinity, NaN]) {
+  assert.throws(() => quote({...whitePet, mold_type: 'female', length_cm: 20, width_cm: 10, height_cm: 1, total_bleed_cm: bad}, config), /正数/, `阴模出血 ${bad} 必须拒绝，不能当成默认 1 cm`);
+}
+for (const ignored of [2, 0, -1, 'abc']) {
+  const maleWithBleed = quote({...whitePet, total_bleed_cm: ignored}, config);
+  assert.equal(maleWithBleed.review_label, null, `阳模应忽略出血 ${ignored}，不标待复核`);
+  assert.equal(maleWithBleed.calculation.layoutAllowanceSource, 'height');
+  assert.equal(maleWithBleed.calculation.layoutAllowanceCm, whitePet.height_cm);
+  assert.equal(maleWithBleed.calculation.layout.sheetLengthCm, pet.calculation.layout.sheetLengthCm);
+  assert.equal(maleWithBleed.calculation.layout.sheetWidthCm, pet.calculation.layout.sheetWidthCm);
+  assert.equal(maleWithBleed.taxed_unit, pet.taxed_unit);
+  assert.equal(maleWithBleed.untaxed_unit, pet.untaxed_unit);
 }
 
 const flock = priceOf('PET植绒', '白色');

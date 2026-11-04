@@ -14,7 +14,7 @@ function quoteRaw(order,config){
  let thickness=order.measured_thickness_mm,weight=order.weight_g;for(const [name,value] of [['厚度',thickness],['克重',weight]])if(!missing(value))n(value,name);
  let assumed=[];let mold=order.mold_type;if(missing(mold)){if(!config.allow_preliminary_male_mold_default&&!cloth)throw Error('请选择模具类型。');mold=cloth?'female':'male';assumed.push('未提供模具，暂按'+(cloth?'阴模':'阳模')+'计算。');}
  if(!['male','female'].includes(mold))throw Error('模具类型请选择 male 或 female。');
- const bleedProvided=!missing(order.total_bleed_cm);if(bleedProvided){n(order.total_bleed_cm,'阴模总出血',{zero:true});assumed.push('阴模总出血为手工填写，需复核。');}
+ let bleedCm=config.female_total_bleed_cm;if(mold==='female'&&!missing(order.total_bleed_cm)){bleedCm=n(order.total_bleed_cm,'阴模总出血');assumed.push('阴模总出血为手工填写，需复核。');}
  if(!cloth&&missing(thickness)&&missing(weight)){if(!config.allow_height_based_estimate)throw Error('请提供厚度或克重。');thickness=heightEstimate(order.material,order.height_cm);assumed.push('厚度按高度估算，仅供参考。');}
  if(!cloth&&order.material.includes('植绒')){
   if(!missing(order.thickness_basis)&&order.thickness_basis!=='substrate')throw Error('植绒厚度须为裸基材厚度。');
@@ -29,7 +29,7 @@ function quoteRaw(order,config){
   Object.assign(rules.freight,{cartonLengthCm:freight.carton_length_cm,cartonWidthCm:freight.carton_width_cm,cartonHeightCm:freight.carton_height_cm,ratePerM3:freight.rate_per_m3});
  }
  const frac=(value,label)=>{const a=missing(value)?0:n(value,label,{zero:true});if(a>=1)throw Error(label+'必须小于1。');return a*100};
- const input={shape:order.shape||'rectangle',lengthCm:order.length_cm,widthCm:order.width_cm,heightCm:order.height_cm,customAreaCm2:order.custom_area_cm2,moldType:mold,bleedCm:bleedProvided?Number(order.total_bleed_cm):config.female_total_bleed_cm,quantity:order.quantity,material:order.material,color:order.color,thicknessMm:thickness,weightG:weight,rejectRate:frac(order.defect_rate,'不良率'),targetMargin:frac(order.extra_margin_rate??config.default_extra_margin_rate,'额外毛利率'),minMargin:frac(config.minimum_margin_rate,'最低毛利率'),taxIncluded:order.tax_included??true,priceConfirmed:true,manualUnit:'',clothPricePerM2:cloth?price:undefined,clothProcessingPerSheet:cloth?base:undefined,moldFee:pt.mold_fee??0,packagingFee:pt.packaging_fee??0,otherFee:pt.other_fee??0,freightMode:mode==='manual'?'手填':mode==='volume'?'按体积':'自提',freightTotal:freight.amount,packPerBox:freight.pieces_per_box};
+ const input={shape:order.shape||'rectangle',lengthCm:order.length_cm,widthCm:order.width_cm,heightCm:order.height_cm,customAreaCm2:order.custom_area_cm2,moldType:mold,bleedCm,quantity:order.quantity,material:order.material,color:order.color,thicknessMm:thickness,weightG:weight,rejectRate:frac(order.defect_rate,'不良率'),targetMargin:frac(order.extra_margin_rate??config.default_extra_margin_rate,'额外毛利率'),minMargin:frac(config.minimum_margin_rate,'最低毛利率'),taxIncluded:order.tax_included??true,priceConfirmed:true,manualUnit:'',clothPricePerM2:cloth?price:undefined,clothProcessingPerSheet:cloth?base:undefined,moldFee:pt.mold_fee??0,packagingFee:pt.packaging_fee??0,otherFee:pt.other_fee??0,freightMode:mode==='manual'?'手填':mode==='volume'?'按体积':'自提',freightTotal:freight.amount,packPerBox:freight.pieces_per_box};
  if(typeof input.taxIncluded!=='boolean')throw Error('tax_included 必须为 true 或 false。');
  const result=calculateTray(input,rules);const errors=[...result.errors,...result.blockers];if(errors.length||!result.canQuote)return {status:'blocked',errors,warnings:result.warnings};
  // Show both prices using independent calculations before unit rounding.
