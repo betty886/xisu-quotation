@@ -115,6 +115,25 @@ assert.equal(untaxed.untaxed_unit, 0.1985);
 assert.equal(untaxed.taxed_unit, 0.2144);
 assert.equal(untaxed.selected, '未税');
 
+// Synthetic in-memory override only; the public reference profile stays at 1.08.
+// This checks configuration isolation and does not represent a factory quote.
+const isolatedTaxConfig = structuredClone(config);
+isolatedTaxConfig.tax_multiplier = 1.1;
+const isolatedTaxQuote = quote(whitePet, isolatedTaxConfig);
+assert.equal(isolatedTaxQuote.calculation.materialTaxFactor, 1.1);
+assert.equal(isolatedTaxQuote.calculation.taxFactor, 1.1);
+assert.equal(isolatedTaxQuote.calculation.pricedCostTotal, pet.calculation.pricedCostTotal);
+assert.equal(isolatedTaxQuote.untaxed_unit, pet.untaxed_unit);
+const isolatedRawTaxed = rawUntaxed * 1.1;
+assert.ok(isolatedTaxQuote.taxed_unit >= isolatedRawTaxed && isolatedTaxQuote.taxed_unit - isolatedRawTaxed < 0.0001, '隔离税率应参与未取整成本的计算');
+const isolatedUntaxed = quote({...whitePet, tax_included: false}, isolatedTaxConfig);
+assert.equal(isolatedUntaxed.calculation.taxFactor, 1);
+assert.equal(isolatedUntaxed.calculation.materialTaxFactor, 1.1);
+assert.equal(isolatedUntaxed.untaxed_unit, pet.untaxed_unit);
+assert.equal(isolatedUntaxed.taxed_unit, isolatedTaxQuote.taxed_unit);
+assert.equal(config.tax_multiplier, 1.08, '隔离配置不能修改公开参考含税系数');
+assert.deepEqual(quote(whitePet, config), pet, '隔离报价后公开参考结果必须保持不变');
+
 let roundedUp = null;
 for (let step = 1; step <= 4000 && !roundedUp; step++) {
   const candidate = quote({...whitePet, measured_thickness_mm: 0.2 + step / 10000}, config);
@@ -271,4 +290,44 @@ assert.equal(clothMale.calculation.layout.occupiedLengthCm, 38);
 assert.equal(clothMale.calculation.layout.occupiedWidthCm, 18);
 assert.equal(clothMale.calculation.sheetProcessingCost, 3);
 
-console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入与白 PET 回归');
+const tactileOrder = (material, color) => ({
+  shape: 'rectangle', length_cm: 10, width_cm: 10, height_cm: 1, mold_type: 'female',
+  material, color, quantity: 100, measured_thickness_mm: 0.5, tax_included: true
+});
+for (const [material, color] of [['触感PET', '黑色'], ['触感PET', '彩色'], ['镀金PET', '彩色']]) {
+  const row = priceOf(material, color);
+  assert.equal(row.processing_base_per_sheet, 1.5, `${material}/${color} 参考参数 processing_base_per_sheet`);
+  const fromFile = square(1, {material, color, quantity: 100});
+  assert.equal(fromFile.calculation.adoptedCavities, 1);
+  assert.equal(fromFile.calculation.baseSheetProcessingCost, row.processing_base_per_sheet);
+  assert.equal(fromFile.calculation.sheetProcessingCost, row.processing_base_per_sheet);
+  for (const [cavities, increment, sheetFee] of [[1, 0, 2.25], [26, 0.4, 2.65]]) {
+    const bumped = machineForColumns(cavities);
+    bumped.default_processing_per_sheet = 9.9;
+    bumped.materials.find(item => item.material === material && item.color === color).processing_base_per_sheet = 2.25;
+    const fromEdit = quote(tactileOrder(material, color), bumped);
+    assert.equal(fromEdit.calculation.adoptedCavities, cavities);
+    assert.equal(fromEdit.calculation.baseSheetProcessingCost, 2.25, `${material}/${color} 必须读取材料行，不能写死 1.50`);
+    assert.equal(fromEdit.calculation.processingIncrement, increment);
+    assert.equal(fromEdit.calculation.sheetProcessingCost, sheetFee, `${material}/${color} ${cavities} 穴应在配置基础费上叠加穴数差额`);
+    assert.notEqual(fromEdit.calculation.sheetProcessingCost, fromFile.calculation.sheetProcessingCost);
+  }
+  for (const missingFee of [undefined, null]) {
+    const stripped = machineForColumns(1);
+    const strippedRow = stripped.materials.find(item => item.material === material && item.color === color);
+    if (missingFee === undefined) delete strippedRow.processing_base_per_sheet;
+    else strippedRow.processing_base_per_sheet = missingFee;
+    stripped.default_processing_per_sheet = 3.3;
+    const fromDefault = quote(tactileOrder(material, color), stripped);
+    assert.equal(fromDefault.calculation.baseSheetProcessingCost, 3.3, `${material}/${color} 加工费缺失或为 null 时应回退 default_processing_per_sheet`);
+    assert.equal(fromDefault.calculation.sheetProcessingCost, 3.3);
+  }
+  const zeroed = machineForColumns(1);
+  zeroed.default_processing_per_sheet = 9.9;
+  zeroed.materials.find(item => item.material === material && item.color === color).processing_base_per_sheet = 0;
+  const fromZero = quote(tactileOrder(material, color), zeroed);
+  assert.equal(fromZero.calculation.baseSheetProcessingCost, 0, `${material}/${color} 有效零值不能被默认加工费替代`);
+  assert.equal(fromZero.calculation.sheetProcessingCost, 0);
+}
+
+console.log('PASS 含税系数、加工费档位、排版、小单、取整、估厚、植绒、无效输入、白 PET 回归与触感/镀金加工费读取配置');
