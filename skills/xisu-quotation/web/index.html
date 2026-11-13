@@ -21,12 +21,21 @@
   </header>
   <main>
     <div class="page-intro"><div><p class="eyebrow">REFERENCE QUOTATION</p><h1>吸塑定制，先算个价。</h1></div><p class="intro-note">填写规格，自动计算<br><span>未税 / 含税单价，一次看清</span></p></div>
+    <a id="design-entry" class="design-entry" href="./design"><span><strong>只有产品？先设计吸塑尺寸</strong><small>按产品包络推算净腔与裁切外形，确认后带入初步报价。</small></span><span aria-hidden="true">→</span></a>
+    <div id="design-transfer-error" class="form-error" role="alert" hidden></div>
+    <section id="design-conflict" class="design-conflict" aria-labelledby="design-conflict-title" hidden>
+      <h2 id="design-conflict-title">已有报价尺寸，请核对后选择</h2>
+      <p>设计方案与现有尺寸或模具不同。现有填写已保留；应用方案会替换尺寸、形状和模具，材料、数量与厚度等保持当前填写。</p>
+      <dl><div><dt>现有填写</dt><dd id="design-current-summary"></dd></div><div><dt>拟带入方案</dt><dd id="design-incoming-summary"></dd></div></dl>
+      <div class="design-conflict-actions"><button id="design-apply-replacement" type="button" class="primary-button">确认用本方案替换尺寸</button><button id="design-keep-existing" type="button" class="secondary-button">保留现有填写</button></div>
+    </section>
     <div class="quote-layout">
       <form id="quote-form" novalidate>
         <section class="form-card" aria-label="产品规格">
-          <div class="section-heading"><h2><span class="section-number">01</span> 产品规格</h2><span>按产品外尺寸填写</span></div>
+          <div class="section-heading"><h2><span class="section-number">01</span> 吸塑成品规格</h2><span>按吸塑裁切外形填写</span></div>
           <div class="form-body">
             <div class="field material-field"><label for="variant">材质与颜色</label><select id="variant" name="variantId" required disabled><option value="">正在载入材料…</option></select></div>
+            <div id="design-source" class="design-source" role="status" hidden><strong>按产品推算，待样品确认</strong><p id="design-source-detail"></p><span>尺寸、形状或模具手动改动后，解除本方案关联。</span></div>
             <div class="dimensions-heading"><label>长 × 宽 × 高</label><fieldset class="unit-control"><legend class="sr-only">尺寸单位</legend><label><input type="radio" name="dimensionUnit" value="cm" checked><span>cm</span></label><label><input type="radio" name="dimensionUnit" value="mm"><span>mm</span></label></fieldset></div>
             <div class="dimension-grid">
               <div class="field"><label for="length" id="length-label">长度</label><div class="input-wrap"><input id="length" name="length" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 17" required><span class="dimension-unit">cm</span></div></div>
