@@ -93,16 +93,16 @@ assert.equal(pet.calculation.density, 1.4);
 assert.equal(config.minimum_margin_rate, 0);
 assert.equal(pet.calculation.targetMargin, 0);
 assert.equal(pet.calculation.minMargin, 0);
-assert.equal(pet.calculation.materialTaxFactor, 1.08);
-assert.equal(pet.calculation.taxFactor, 1.08);
+assert.equal(pet.calculation.materialTaxFactor, 1.1);
+assert.equal(pet.calculation.taxFactor, 1.1);
 assert.equal(pet.untaxed_unit, 0.1985);
-assert.equal(pet.taxed_unit, 0.2144);
+assert.equal(pet.taxed_unit, 0.2184);
 assert.equal(pet.untaxed_total, 1985);
-assert.equal(pet.taxed_total, 2144);
+assert.equal(pet.taxed_total, 2184);
 assert.equal(pet.taxed_total, Math.round(pet.taxed_unit * whitePet.quantity * 100) / 100);
 assert.equal(pet.untaxed_total, Math.round(pet.untaxed_unit * whitePet.quantity * 100) / 100);
 const rawUntaxed = pet.calculation.pricedCostTotal / whitePet.quantity;
-const rawTaxed = rawUntaxed * 1.08;
+const rawTaxed = rawUntaxed * 1.1;
 assert.ok(pet.untaxed_unit >= rawUntaxed);
 assert.ok(pet.taxed_unit >= rawTaxed);
 assert.ok(pet.untaxed_unit - rawUntaxed < 0.0001);
@@ -110,28 +110,29 @@ assert.equal(Math.round(pet.taxed_total * 100), pet.taxed_total * 100);
 
 const untaxed = quote({...whitePet, tax_included: false}, config);
 assert.equal(untaxed.calculation.taxFactor, 1);
-assert.equal(untaxed.calculation.materialTaxFactor, 1.08);
+assert.equal(untaxed.calculation.materialTaxFactor, 1.1);
 assert.equal(untaxed.untaxed_unit, 0.1985);
-assert.equal(untaxed.taxed_unit, 0.2144);
+assert.equal(untaxed.taxed_unit, 0.2184);
 assert.equal(untaxed.selected, '未税');
 
-// Synthetic in-memory override only; the public reference profile stays at 1.08.
+// Synthetic in-memory override only; the public reference profile stays at 1.1.
+// 1.2 is distinct from that public coefficient so this still fails if the engine ignores the supplied value.
 // This checks configuration isolation and does not represent a factory quote.
 const isolatedTaxConfig = structuredClone(config);
-isolatedTaxConfig.tax_multiplier = 1.1;
+isolatedTaxConfig.tax_multiplier = 1.2;
 const isolatedTaxQuote = quote(whitePet, isolatedTaxConfig);
-assert.equal(isolatedTaxQuote.calculation.materialTaxFactor, 1.1);
-assert.equal(isolatedTaxQuote.calculation.taxFactor, 1.1);
+assert.equal(isolatedTaxQuote.calculation.materialTaxFactor, 1.2);
+assert.equal(isolatedTaxQuote.calculation.taxFactor, 1.2);
 assert.equal(isolatedTaxQuote.calculation.pricedCostTotal, pet.calculation.pricedCostTotal);
 assert.equal(isolatedTaxQuote.untaxed_unit, pet.untaxed_unit);
-const isolatedRawTaxed = rawUntaxed * 1.1;
+const isolatedRawTaxed = rawUntaxed * 1.2;
 assert.ok(isolatedTaxQuote.taxed_unit >= isolatedRawTaxed && isolatedTaxQuote.taxed_unit - isolatedRawTaxed < 0.0001, '隔离税率应参与未取整成本的计算');
 const isolatedUntaxed = quote({...whitePet, tax_included: false}, isolatedTaxConfig);
 assert.equal(isolatedUntaxed.calculation.taxFactor, 1);
-assert.equal(isolatedUntaxed.calculation.materialTaxFactor, 1.1);
+assert.equal(isolatedUntaxed.calculation.materialTaxFactor, 1.2);
 assert.equal(isolatedUntaxed.untaxed_unit, pet.untaxed_unit);
 assert.equal(isolatedUntaxed.taxed_unit, isolatedTaxQuote.taxed_unit);
-assert.equal(config.tax_multiplier, 1.08, '隔离配置不能修改公开参考含税系数');
+assert.equal(config.tax_multiplier, 1.1, '隔离配置不能修改公开参考含税系数');
 assert.deepEqual(quote(whitePet, config), pet, '隔离报价后公开参考结果必须保持不变');
 
 let roundedUp = null;

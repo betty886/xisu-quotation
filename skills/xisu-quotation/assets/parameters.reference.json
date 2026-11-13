@@ -259,7 +259,7 @@
       "fee": 0
     }
   ],
-  "tax_multiplier": 1.08,
+  "tax_multiplier": 1.1,
   "default_extra_margin_rate": 0,
   "minimum_margin_rate": 0,
   "allow_preliminary_male_mold_default": true,

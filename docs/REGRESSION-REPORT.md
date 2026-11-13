@@ -4,9 +4,11 @@ Original PR record: 2026-11-04. Independent review: 2026-11-06.
 
 ## Scope and tax-profile separation
 
-The quoted unit prices and totals in this report are regression fixtures computed from the repository's **public reference configuration**, `skills/xisu-quotation/assets/parameters.reference.json`. Its `profile_type` is `public_reference_rules`, its `tax_multiplier` is **1.08**, and its default extra margin and minimum margin are both zero. These prices are reference calculations, not approved factory quotations or current commercial material prices. Alternate processing fees and the isolated tax value below are synthetic test inputs.
+The quoted unit prices and totals in the current fixture sections of this report are computed from the repository's **public reference configuration**, `skills/xisu-quotation/assets/parameters.reference.json`. Its `profile_type` is `public_reference_rules`, its `tax_multiplier` is **1.1** (owner-confirmed on 2026-11-11, replacing the previous public value 1.08), and its default extra margin and minimum margin are both zero. These prices are reference calculations, not approved factory quotations or current commercial material prices. Alternate processing fees and the isolated tax value below are synthetic test inputs.
 
-Actual factory operating parameters must be maintained and checked separately in a private configuration. The public fixture's 1.08 does not replace those operating rules. A cloned configuration with `tax_multiplier: 1.1` is used only as an **isolated synthetic tax fixture** to verify that the engine reads the supplied value without modifying the public profile; it does not declare any factory's actual tax rule or quote a factory price. This review does not change the public tax setting, material or machine parameters, or the production calculation formula. Public test prices must not be copied into a factory quotation without validating the complete private configuration and order conditions.
+Actual factory operating parameters must be maintained and checked separately in a private configuration. The public fixture's 1.1 is the current internal quotation tax-inclusive multiplier; other operating rules still come from the configuration in use. A cloned configuration with synthetic `tax_multiplier: 1.2` (distinct from the public 1.1) is used only as an **isolated synthetic tax fixture** to verify that the engine reads the supplied value without modifying the public profile. It does not declare a second tax rule or quote a factory price. This update changes only the public tax multiplier and the tax-inclusive amounts that follow from it. Material prices, machine parameters, margin defaults, and the production calculation formula stay as they were. Public test prices must not be copied into a factory quotation without validating the complete private configuration and order conditions.
+
+The 2026-11-06 review recorded later in this file used the previous public multiplier 1.08. Under that multiplier the white PET tax-inclusive unit was 0.2144 and the total was 2144; the transparent PET sample tax-inclusive unit was 0.1410 and the total was 33840. Those figures describe that review. With the current public multiplier 1.1, the same untaxed costs produce a white PET tax-inclusive unit of **0.2184** and a total of **2184**, and a transparent PET sample tax-inclusive unit of **0.1436** and a total of **34464**. Untaxed unit prices are unchanged.
 
 ## Original suite record — 2026-11-04
 
@@ -60,7 +62,7 @@ Coverage confirmed by reading those scripts:
 
 | Script | What it checks |
 |---|---|
-| `quote.test.cjs` | Sample PET transparent order (untaxed 0.1305 / tax-inclusive 0.1410), flock reference parameters, cloth layout, height estimate, weight, invalid input |
+| `quote.test.cjs` | Sample PET transparent order (untaxed 0.1305 / tax-inclusive 0.1436), flock reference parameters, cloth layout, height estimate, weight, invalid input |
 | `flock-weight.test.cjs` | Fixed flock price and density, finished vs substrate weight, custom config, offline module call in a child `node -e` process |
 | `rules.test.cjs` | Tax factor, processing tiers, layout, small-order fees, rounding, height estimate, flock, invalid input, white PET regression, 触感/镀金 base fee read from config |
 | `web-server.test.cjs` | Local HTTP quote API, including the same white PET prices, 28 selectable variants, auth, custom config, and comparison with a direct `quote()` module call |
@@ -78,19 +80,19 @@ Input, using the built-in reference file `skills/xisu-quotation/assets/parameter
 | Size | 17.5 × 7.5 × 4 cm |
 | Thickness | 40 丝 = 0.40 mm (`measured_thickness_mm: 0.4`; the UI shows 丝 as mm × 100) |
 | Quantity | 10000 |
-| Public reference tax multiplier | 1.08 |
+| Public reference tax multiplier | 1.1 |
 | Extra margin / minimum margin | 0 / 0 |
 | Extra defect rate | 0 |
 | Mold, packaging, other fees and freight | 0; pickup freight default |
 
-Direct `quote()` result, independently checked on 2026-11-06 using the unchanged public reference parameters:
+Direct `quote()` result with the current public reference parameters. The 2026-11-06 review of this same order, under the previous public multiplier 1.08, recorded a tax-inclusive unit of 0.2144 and a total of 2144. The current multiplier is 1.1:
 
 | Result | Value | Expected |
 |---|---|---|
 | Reference untaxed unit | **0.1985** | 0.1985 |
-| Reference tax-inclusive unit (1.08) | **0.2144** | 0.2144 |
+| Reference tax-inclusive unit (1.1) | **0.2184** | 0.2184 |
 | Reference untaxed total | 1985 | 0.1985 × 10000 |
-| Reference tax-inclusive total (1.08) | 2144 | 0.2144 × 10000 |
+| Reference tax-inclusive total (1.1) | 2184 | 0.2184 × 10000 |
 
 Match: yes.
 
@@ -114,13 +116,13 @@ The formula in `quote.cjs` / `tray-engine.cjs` and separate arithmetic give the 
 | Small-order fee | Continuous count below 500 sheets | 500 yuan per order |
 | Unrounded untaxed total | (3.0539404 + 1.40) × (10000 / 30) + 500 | 1984.6468 yuan |
 | Unrounded untaxed unit | 1984.6468 / 10000 | 0.19846468 yuan |
-| Unrounded tax-inclusive unit | 0.19846468 × public multiplier 1.08 | 0.2143418544 yuan |
+| Unrounded tax-inclusive unit | 0.19846468 × public multiplier 1.1 | 0.218311148 yuan |
 
 The charge uses continuous sheets. `productionSheets` is 334, but that whole-sheet value is for production planning and is not substituted into the pricing formula. There is no extra defect rate, margin, or pass-through fee in this fixture.
 
-The two prices are calculated independently from unrounded costs, then each unit price is rounded **up** to four decimal places: 0.1985 untaxed and 0.2144 with the public 1.08 multiplier. Each rounded unit is multiplied by 10000 and the resulting total is rounded to cents, giving 1985.00 and 2144.00. The calculation does not derive one quoted unit from the already rounded other unit.
+The two prices are calculated independently from unrounded costs, then each unit price is rounded **up** to four decimal places: 0.1985 untaxed and 0.2184 with the public 1.1 multiplier. Each rounded unit is multiplied by 10000 and the resulting total is rounded to cents, giving 1985.00 and 2184.00. The calculation does not derive one quoted unit from the already rounded other unit. The previous public multiplier 1.08 produced 0.2144 and 2144.00 from the same untaxed cost; that pair is the 2026-11-06 review result, not the current fixture.
 
-The same result values are asserted in `rules.test.cjs` through a direct `quote()` module call and in `web-server.test.cjs` through the HTTP endpoint (`untaxedUnitPrice` 0.1985, `referenceUnitPrice` 0.2144). The `rules.test.cjs` assertions do not invoke the `quote.cjs` command-line entry point.
+The same current result values are asserted in `rules.test.cjs` through a direct `quote()` module call and in `web-server.test.cjs` through the HTTP endpoint (`untaxedUnitPrice` 0.1985, `referenceUnitPrice` 0.2184). The `rules.test.cjs` assertions do not invoke the `quote.cjs` command-line entry point.
 
 ## Check 2: 触感PET and 镀金PET processing base
 
@@ -186,8 +188,8 @@ Neither original PR changes `quote.cjs`, `tray-engine.cjs`, the reference parame
 ### Independently verified findings
 
 - Direct execution of the fetched `quote.cjs` / `tray-engine.cjs` at the original PR #3 head reproduced the white PET values above. Separate arithmetic reproduced the same unrounded values and rounding sequence.
-- The transparent PET sample also reproduced 0.1305 untaxed, 0.1410 with the public reference tax multiplier, and a tax-inclusive total of 33840.
-- The one-cavity machine override, public tax multiplier 1.08, zero margin defaults, continuous-sheet pricing and unconditional successful `pending_review` status were checked against source.
+- The transparent PET sample, under the then-current public multiplier 1.08, reproduced 0.1305 untaxed, 0.1410 tax-inclusive, and a tax-inclusive total of 33840. With the current public multiplier 1.1 the same order is 0.1305 untaxed, 0.1436 tax-inclusive, and 34464.
+- On 2026-11-06 the public tax multiplier in source was 1.08. As of 2026-11-11 the public multiplier is 1.1. The one-cavity machine override, zero margin defaults, continuous-sheet pricing and unconditional successful `pending_review` status were checked against source and are unchanged.
 - The locked Playwright packages require Node.js **20 or newer**; the original report's Node.js 18 instruction was incorrect.
 - The original PR's historical pass logs alone do not establish the outcome of the current verification run.
 
@@ -202,8 +204,8 @@ The revised `rules.test.cjs` keeps a single three-material test family from PR #
 | Edited row 2.25, alternate default 9.9, 26 cavities | Configured base remains 2.25; cavity increment is 0.40; total processing fee is 2.65 |
 | Material fee field deleted or explicitly null, default 3.3 | Both nullish cases fall back to 3.3 |
 | Valid material fee 0, alternate default 9.9 | Zero remains zero; it does not trigger fallback |
-| Isolated cloned tax fixture at 1.1 | The supplied multiplier drives tax calculation, including when the selected display is untaxed; unrounded costs and the untaxed quote are unchanged |
-| Original public profile after the synthetic tax check | The original multiplier remains 1.08 and re-quoting it reproduces the original result exactly |
+| Isolated cloned tax fixture at 1.2 | The supplied multiplier drives tax calculation, including when the selected display is untaxed; unrounded costs and the untaxed quote are unchanged. 1.2 is distinct from the current public coefficient 1.1 |
+| Original public profile after the synthetic tax check | The original multiplier remains 1.1 and re-quoting it reproduces the original result exactly |
 
 The zero/null cases protect the `??` behavior from an accidental change to a truthiness-based fallback. The 26-cavity case verifies that changing the material base still composes correctly with the existing cavity surcharge. The tax fixture checks configuration isolation without publishing a price for that fixture or altering the public or private configuration files.
 
@@ -244,7 +246,7 @@ A separate in-memory experiment ran the four versions of `rules.test.cjs` agains
 | Valid zero incorrectly falls back (`??` changed to `\|\|`) | Missed | Missed | Missed | Caught |
 | Explicit null incorrectly bypasses fallback | Missed | Missed | Missed | Caught by error on the required successful quote |
 | Configured special-material base ignored above one cavity | Missed | Missed | Missed | Caught |
-| Supplied tax multiplier ignored in favor of constant 1.08 | Missed | Missed | Missed | Caught |
+| Supplied tax multiplier ignored in favor of the then-current public constant 1.08 (2026-11-06; current public constant is 1.1, and the retained test supplies synthetic 1.2) | Missed | Missed | Missed | Caught |
 
 The experiment exited 0 after checking that the retained suite rejected all six deliberate mutations. It confirms the added coverage addresses distinct omissions rather than repeating the original single-cavity assertions.
 
@@ -266,4 +268,4 @@ To reprint the white PET case without the rest of the suite, call the exported m
 node -e 'const {quote}=require("./skills/xisu-quotation/scripts/quote.cjs"); const config=require("./skills/xisu-quotation/assets/parameters.reference.json"); const r=quote({shape:"rectangle",length_cm:17.5,width_cm:7.5,height_cm:4,mold_type:"male",material:"PET",color:"白色",quantity:10000,measured_thickness_mm:0.4,tax_included:true}, config); console.log(r.untaxed_unit, r.taxed_unit);'
 ```
 
-Expected print with the unchanged **public reference configuration and its 1.08 multiplier**: `0.1985 0.2144`. This is not a factory quotation. The file-input CLI is a separate entry point: `node skills/xisu-quotation/scripts/quote.cjs ORDER.json [PARAMETERS.json]`.
+Expected print with the current **public reference configuration and its 1.1 multiplier**: `0.1985 0.2184`. The 2026-11-06 review printed `0.1985 0.2144` under the previous public multiplier 1.08. This is not a factory quotation. The file-input CLI is a separate entry point: `node skills/xisu-quotation/scripts/quote.cjs ORDER.json [PARAMETERS.json]`.
