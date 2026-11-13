@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {quoteWithFlockWeight} = require('./quote.cjs');
+const {designTray} = require('./design-tray.cjs');
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'web');
 const parameterFile = path.join(root, 'assets', 'parameters.reference.json');
@@ -12,6 +13,9 @@ const staticFiles = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/design', ['design.html', 'text/html; charset=utf-8']],
+  ['/design.html', ['design.html', 'text/html; charset=utf-8']],
+  ['/design.js', ['design.js', 'text/javascript; charset=utf-8']],
   ['/mold-guide.svg', ['mold-guide.svg', 'image/svg+xml']]
 ]);
 const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape','taxIncluded']);
@@ -154,17 +158,22 @@ function createServer({configPath=parameterFile, password=process.env.QUOTE_PASS
       }
       if((req.method==='GET'||req.method==='HEAD')&&publicFiles.has(pathname))return sendFile(res,req,publicFiles.get(pathname));
       if(!configured){
-        if(req.method==='GET'&&(pathname==='/'||pathname==='/index.html')){res.writeHead(503,{'Content-Type':'text/html; charset=utf-8'});res.end(unconfiguredHtml);return;}
+        if(req.method==='GET'&&['/','/index.html','/design','/design.html'].includes(pathname)){res.writeHead(503,{'Content-Type':'text/html; charset=utf-8'});res.end(unconfiguredHtml);return;}
         throw new RequestError('未配置 QUOTE_PASSWORD，不能报价。',undefined,503);
       }
       if(!authed){
-        if(req.method==='GET'&&(pathname==='/'||pathname==='/index.html'))return sendFile(res,req,publicFiles.get('/login.html'));
+        if(req.method==='GET'&&['/','/index.html','/design','/design.html'].includes(pathname))return sendFile(res,req,publicFiles.get('/login.html'));
         throw new RequestError('请先输入内部口令。',undefined,401);
       }
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
       if(req.method==='POST'&&pathname==='/api/quote'){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
         const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath)));
+      }
+      if(req.method==='POST'&&pathname==='/api/design'){
+        if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
+        const result=designTray(await readJson(req));
+        return sendJson(res,result.status==='blocked'?422:200,result);
       }
       if(req.method!=='GET' && req.method!=='HEAD')throw new RequestError('请求方式不受支持。',undefined,405);
       const entry=staticFiles.get(pathname);if(!entry)throw new RequestError('页面不存在。',undefined,404);

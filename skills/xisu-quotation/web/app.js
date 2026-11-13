@@ -3,13 +3,148 @@
   const $ = id => document.getElementById(id);
   const form = $('quote-form');
   const variants = new Map();
-  const state = {ready: false, sequence: 0, timer: null, controller: null, quote: null, payload: null, unit: 'cm', previousMaterial: ''};
+  const state = {ready: false, sequence: 0, timer: null, controller: null, quote: null, payload: null, unit: 'cm', previousMaterial: '', designSource: null, pendingDesign: null, formEdited: false, geometryRevision: 0};
+  const designHandoffKey = 'xisu.design.handoff.v1';
+  const quoteDraftKey = 'xisu.quote.draft.v1';
+  const draftFields = ['variant', 'length', 'width', 'height', 'quantity', 'thickness', 'weight', 'shape', 'flock-weight-basis'];
+  const draftChoices = {dimensionUnit: ['cm', 'mm'], moldType: ['', 'male', 'female'], measurementMode: ['thickness', 'weight'], taxMode: ['tax', 'untax']};
   const shapeNames = {rectangle: '矩形', circle: '圆形', ellipse: '椭圆形', hexagon: '正六边形', triangle: '三角形'};
   const selected = name => form.querySelector(`input[name="${name}"]:checked`)?.value || '';
   const currentVariant = () => variants.get($('variant').value);
   const fmt = (number, digits = 2) => Number(number).toLocaleString('zh-CN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
   const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight'];
   const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', taxIncluded: 'tax-label'};
+
+  function designTransferError(message) {
+    $('design-transfer-error').textContent = message;
+    $('design-transfer-error').hidden = false;
+  }
+  function saveDraft() {
+    if (!state.ready && !state.formEdited) return true;
+    const fields = Object.fromEntries(draftFields.map(id => [id, $(id).value]));
+    const choices = Object.fromEntries(Object.keys(draftChoices).map(name => [name, selected(name)]));
+    try {
+      sessionStorage.setItem(quoteDraftKey, JSON.stringify({version: 1, created_at: Date.now(), fields, choices, design_source: state.designSource}));
+      return true;
+    } catch {return false;}
+  }
+  function restoreDraft() {
+    if (state.formEdited) return null;
+    try {
+      const raw = sessionStorage.getItem(quoteDraftKey);
+      if (!raw) return null;
+      if (raw.length > 18000) throw new Error('Oversize draft');
+      const draft = JSON.parse(raw);
+      if (!draft || draft.version !== 1 || typeof draft.created_at !== 'number' || Date.now() - draft.created_at > 12 * 60 * 60 * 1000 || draft.created_at > Date.now() + 60000 || !draft.fields || !draft.choices) throw new Error('Invalid draft');
+      if (!draftFields.every(id => typeof draft.fields[id] === 'string' && draft.fields[id].length <= 160) || !Object.entries(draftChoices).every(([name, values]) => values.includes(draft.choices[name])) || !Object.hasOwn(shapeNames, draft.fields.shape) || (draft.fields.variant && !variants.has(draft.fields.variant)) || !['', 'finished', 'substrate'].includes(draft.fields['flock-weight-basis'])) throw new Error('Invalid draft fields');
+      for (const id of draftFields) $(id).value = draft.fields[id];
+      for (const name of Object.keys(draftChoices)) form.querySelectorAll(`input[name="${name}"]`).forEach(element => {element.checked = element.value === draft.choices[name];});
+      state.unit = draft.choices.dimensionUnit;
+      updateMeasurement(); updateShape(); convertUnits();
+      return draft.design_source || null;
+    } catch {
+      try {sessionStorage.removeItem(quoteDraftKey);} catch {}
+      return null;
+    }
+  }
+  function handoffValid(value, maxAge = 30 * 60 * 1000) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1 || value.schema_version !== '1.0' || value.accepted !== true || typeof value.created_at !== 'number' || !Number.isFinite(value.created_at) || Date.now() - value.created_at > maxAge || value.created_at > Date.now() + 60000) return false;
+    const request = value.request, dims = value.quote_dimensions;
+    if (!request || typeof request !== 'object' || Array.isArray(request) || !request.product || typeof request.product !== 'object' || !['rectangle', 'circle'].includes(request.product.shape) || !['mm', 'cm'].includes(request.product.unit) || !dims || !['rectangle', 'circle'].includes(dims.shape) || dims.shape !== request.product.shape) return false;
+    if (![dims.length_cm, dims.width_cm, dims.height_cm].every(number => typeof number === 'number' && Number.isFinite(number) && number > 0 && number <= 1000) || (dims.shape === 'circle' && dims.width_cm !== dims.length_cm) || ![null, 'male', 'female'].includes(value.mold_type)) return false;
+    return JSON.stringify(request).length <= 8192;
+  }
+  async function verifyDesign(handoff, maxAge) {
+    if (!handoffValid(handoff, maxAge)) throw new Error('Invalid handoff');
+    const response = await fetch('./api/design', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(handoff.request)});
+    const result = await response.json();
+    if (!response.ok || result.schema_version !== '1.0' || result.status !== 'pending_review' || result.tooling_release !== false || !result.quote_dimensions || !result.tooling) throw new Error('Design unavailable');
+    if (result.quote_dimensions.shape !== handoff.quote_dimensions.shape || !['length_cm', 'width_cm', 'height_cm'].every(key => typeof result.quote_dimensions[key] === 'number' && result.quote_dimensions[key] === handoff.quote_dimensions[key]) || (result.tooling.mold_type || null) !== handoff.mold_type) throw new Error('Design changed');
+    return handoff;
+  }
+  function designDimensionsSummary(handoff) {
+    const dims = handoff.quote_dimensions;
+    const outline = dims.shape === 'circle' ? `圆形直径 ${fmt(dims.length_cm, 3)}` : `矩形 ${fmt(dims.length_cm, 3)} × ${fmt(dims.width_cm, 3)}`;
+    const mold = handoff.mold_type === 'female' ? '阴模' : handoff.mold_type === 'male' ? '阳模' : '模具待确认（报价按材料默认规则试算）';
+    return `${outline} × 高 ${fmt(dims.height_cm, 3)} cm；${mold}`;
+  }
+  function designConflicts(handoff) {
+    const dims = handoff.quote_dimensions;
+    const hasDimensions = ['length', 'width', 'height'].some(id => $(id).value.trim() !== '');
+    if ((hasDimensions || $('shape').value !== 'rectangle') && $('shape').value !== dims.shape) return true;
+    const factor = selected('dimensionUnit') === 'mm' ? 0.1 : 1;
+    const checks = [['length', 'length_cm'], ['height', 'height_cm'], ...(dims.shape === 'rectangle' ? [['width', 'width_cm']] : [])];
+    for (const [id, key] of checks) {
+      const value = $(id).value.trim();
+      if (value && (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || Math.abs(Number(value) * factor - dims[key]) > 1e-8)) return true;
+    }
+    return Boolean(selected('moldType') && selected('moldType') !== (handoff.mold_type || ''));
+  }
+  function detachDesign() {
+    state.designSource = null;
+    $('design-source').hidden = true;
+    $('design-source-detail').textContent = '';
+  }
+  function attachDesign(handoff) {
+    state.designSource = handoff;
+    $('design-source-detail').textContent = `${designDimensionsSummary(handoff)}。${handoff.request.design?.quote_height_mm != null ? '报价高度采用填写的实际成型外高。' : '报价高度暂按净腔深度，仍需实测外高。'}`;
+    $('design-source').hidden = false;
+  }
+  function updateConflictSummary() {
+    if (!state.pendingDesign) return;
+    const mold = selected('moldType');
+    $('design-current-summary').textContent = `${shapeNames[$('shape').value]}，${describeDimensions(currentPayload())}；${mold === 'male' ? '阳模' : mold === 'female' ? '阴模' : '模具未填写'}`;
+    $('design-incoming-summary').textContent = designDimensionsSummary(state.pendingDesign);
+  }
+  function applyDesign(handoff) {
+    if (!handoffValid(handoff)) {
+      state.pendingDesign = null;
+      $('design-conflict').hidden = true;
+      designTransferError('本次尺寸方案已过期，未替换现有填写。请返回尺寸设计页重新计算并确认。');
+      return;
+    }
+    const dims = handoff.quote_dimensions;
+    $('shape').value = dims.shape;
+    form.querySelectorAll('input[name="dimensionUnit"]').forEach(element => {element.checked = element.value === 'cm';});
+    state.unit = 'cm';
+    $('length').value = String(dims.length_cm);
+    $('width').value = String(dims.width_cm);
+    $('height').value = String(dims.height_cm);
+    form.querySelectorAll('input[name="moldType"]').forEach(element => {element.checked = element.value === handoff.mold_type;});
+    updateShape(); convertUnits();
+    state.pendingDesign = null;
+    $('design-conflict').hidden = true;
+    $('design-transfer-error').hidden = true;
+    attachDesign(handoff);
+    saveDraft();
+    schedule();
+  }
+  async function receiveDesign(restoredSource) {
+    let raw;
+    try {raw = sessionStorage.getItem(designHandoffKey); sessionStorage.removeItem(designHandoffKey);} catch {}
+    if (restoredSource) {
+      const geometryRevision = state.geometryRevision;
+      try {
+        const handoff = await verifyDesign(restoredSource, 12 * 60 * 60 * 1000);
+        if (!designConflicts(handoff) && state.geometryRevision === geometryRevision) {attachDesign(handoff); saveDraft();}
+      } catch {
+        detachDesign();
+        designTransferError('上次尺寸设计关联已过期或无法核验。当前填写已保留；请核对尺寸，或重新设计后再确认报价。');
+      }
+    }
+    if (!raw) return;
+    try {
+      if (raw.length > 14000) throw new Error('Oversize handoff');
+      const handoff = await verifyDesign(JSON.parse(raw));
+      if (designConflicts(handoff)) {
+        state.pendingDesign = handoff;
+        updateConflictSummary();
+        $('design-conflict').hidden = false;
+      } else applyDesign(handoff);
+    } catch {
+      designTransferError('本次尺寸方案已过期、被改动或无法核验，未带入报价。请返回尺寸设计页重新计算并确认；现有填写已保留。');
+    }
+  }
 
   function invalidate() {
     state.sequence++;
@@ -112,6 +247,7 @@
     addSummaryRow('材料', variants.get(payload.variantId).label);
     if (Number.isFinite(quote.flockPricePerKg) && Number.isFinite(quote.flockDensity)) { addSummaryRow('植绒比重', fmt(quote.flockDensity, 6)); addSummaryRow('植绒材料单价', `${fmt(quote.flockPricePerKg, 4)} 元/kg`); }
     addSummaryRow(shapeNames[payload.shape], describeDimensions(payload));
+    if (state.designSource) addSummaryRow('尺寸来源', '按产品推算，待样品确认；采用吸塑裁切外形');
     if (payload.weightG) addSummaryRow(payload.weightBasis === 'substrate' ? '植绒前裸片单件克重' : payload.weightBasis === 'finished' ? '植绒后成品单件克重' : '成品单件克重', `${payload.weightG} g`);
     if (quote.thicknessSource !== 'not_required' && Number.isFinite(quote.thicknessMm)) {
       const label = quote.thicknessSource === 'height_estimate' ? '按高度估算厚度' : quote.thicknessSource === 'weight_estimate' ? (currentVariant().material.includes('植绒') ? (payload.weightBasis === 'finished' ? '成品克重估算的等效厚度（非裸基材厚度）' : '裸片克重估算裸基材厚度') : '按克重反推厚度') : currentVariant().material.includes('植绒') ? '裸基材厚度' : '原片厚度';
@@ -121,7 +257,7 @@
     addSummaryRow('模具', `${moldName}${quote.moldDefaulted ? `（未填写，按${moldName}）` : ''}`);
     renderBreakdown(quote);
     $('spec-summary').hidden = false;
-    $('result-notes').replaceChildren(...quote.notes.map(paragraph));
+    $('result-notes').replaceChildren(...[...(state.designSource ? ['按产品推算，待样品确认。报价采用吸塑裁切外形，高度仍需按成型实物复核。'] : []), ...quote.notes].map(paragraph));
     $('copy-quote').disabled = false;
     $('quote-announcement').textContent = `未税参考价每件 ${fmt(quote.untaxedUnitPrice, 4)} 元，含税参考价每件 ${fmt(quote.referenceUnitPrice, 4)} 元，总金额 ${fmt(quote.total)} 元。`;
   }
@@ -238,10 +374,15 @@
     if (!validate(currentPayload())) state.timer = setTimeout(() => calculate(), 380);
   }
   form.addEventListener('input', event => {
+    state.formEdited = true;
+    if (['length', 'width', 'height'].includes(event.target.id)) {state.geometryRevision++; detachDesign();}
     if (event.target.matches('input[type="text"]')) schedule();
+    updateConflictSummary(); saveDraft();
   });
   form.addEventListener('change', event => {
     const target = event.target;
+    state.formEdited = true;
+    if (['length', 'width', 'height', 'shape'].includes(target.id) || ['moldType', 'dimensionUnit'].includes(target.name)) {state.geometryRevision++; detachDesign();}
     if (target.id === 'variant') {
       state.previousMaterial = currentVariant()?.material || '';
       updateMeasurement();
@@ -250,6 +391,7 @@
     if (target.name === 'dimensionUnit') convertUnits();
     if (target.id === 'shape') updateShape();
     if (!target.matches('input[type="text"]')) schedule();
+    updateConflictSummary(); saveDraft();
   });
   form.addEventListener('submit', event => { event.preventDefault(); calculate(true); });
   numericFields.forEach(id => $(id).addEventListener('focus', event => event.target.select()));
@@ -270,7 +412,7 @@
     const measurement = payload.weightG ? `${weightLabel}：${payload.weightG} g\n${thicknessText}` : thicknessText;
     const layoutLine = quote.layout ? `排版：${quote.layout.orientation}，${quote.layout.columns}×${quote.layout.rows}，${quote.layout.theoreticalCavities} 穴，片材 ${fmt(quote.layout.sheetLengthCm, 2)}×${fmt(quote.layout.sheetWidthCm, 2)} cm` : '';
     const copiedMold = quote.moldType === 'female' ? '阴模' : '阳模';
-    const text = ['吸塑定制参考报价', quote.reviewLabel, `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${copiedMold}${quote.moldDefaulted ? `（未填写，按${copiedMold}）` : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
+    const text = ['吸塑定制参考报价', quote.reviewLabel, state.designSource ? '尺寸来源：按产品推算，待样品确认；采用吸塑裁切外形，成型外高待复核。' : '', `材料：${material}`, `规格：${shapeNames[payload.shape]}，${describeDimensions(payload)}`, measurement, `模具：${copiedMold}${quote.moldDefaulted ? `（未填写，按${copiedMold}）` : ''}`, layoutLine, `数量：${fmt(quote.quantity, 0)} 件`, `未税参考单价：¥ ${fmt(quote.untaxedUnitPrice, 4)} / 件`, `含税参考单价：¥ ${fmt(quote.referenceUnitPrice, 4)} / 件`, `${payload.taxIncluded === false ? '未税' : '含税'}产品总额：¥ ${fmt(payload.taxIncluded === false ? quote.untaxedTotal : quote.total)}`, `另计费用：${quote.exclusions.join('、')}`, ...quote.notes, `报价时间：${new Date().toLocaleString('zh-CN', {hour12: false})}`].filter(Boolean).join('\n');
     try {
       await navigator.clipboard.writeText(text);
       if (requestId === state.sequence) $('copy-status').textContent = '报价信息已复制';
@@ -292,15 +434,24 @@
         groups.get(variant.material).append(new Option(variant.label, variant.variantId));
       }
       state.ready = true; $('variant').disabled = false; $('calculate').disabled = false;
+      const restoredSource = restoreDraft();
+      await receiveDesign(restoredSource);
+      if (!state.pendingDesign && $('design-transfer-error').hidden && !validate(currentPayload())) schedule();
     } catch {
       $('variant').replaceChildren(new Option('材料暂未载入，请刷新重试', ''));
       showError({message: '报价服务未连接成功，请刷新页面重试。'}, false);
     }
   }
   $('logout').addEventListener('click', async () => {
+    try {sessionStorage.removeItem(quoteDraftKey); sessionStorage.removeItem(designHandoffKey);} catch {}
     await fetch('./api/logout', {method: 'POST'}).catch(() => {});
     location.replace('./');
   });
+  $('design-entry').addEventListener('click', event => {
+    if (!saveDraft()) {event.preventDefault(); designTransferError('浏览器未能保存现有填写，尚未离开报价页。请允许本站会话存储后重试。');}
+  });
+  $('design-apply-replacement').addEventListener('click', () => {if (state.pendingDesign) applyDesign(state.pendingDesign);});
+  $('design-keep-existing').addEventListener('click', () => {state.pendingDesign = null; $('design-conflict').hidden = true; saveDraft(); if (!validate(currentPayload())) schedule();});
   updateMeasurement();
   updateShape();
   loadOptions();

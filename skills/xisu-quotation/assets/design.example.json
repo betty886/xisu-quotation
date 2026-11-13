@@ -1,0 +1,26 @@
+{
+  "product": {
+    "shape": "rectangle",
+    "unit": "mm",
+    "length": 100,
+    "width": 60,
+    "height": 20,
+    "dimensions_are_maximum": true,
+    "source": "虚构教学产品；请替换为客户最大包络实测值"
+  },
+  "design": {
+    "clearance_per_side_mm": 1,
+    "draft_angle_deg": 3,
+    "rim_to_trim_mm": 8,
+    "pocket_depth_mm": 20,
+    "forming_negative_tolerance_mm": 0,
+    "quote_height_mm": 20
+  },
+  "lining": {
+    "type": "none"
+  },
+  "tooling": {
+    "mold_type": "male"
+  },
+  "fit_mode": "loose"
+}

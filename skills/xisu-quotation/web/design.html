@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102b40">
+  <meta name="robots" content="noindex,follow">
+  <title>按产品设计吸塑尺寸 · 吸塑报价工作台</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./design.js" defer></script>
+</head>
+<body class="design-page">
+  <header class="site-header">
+    <div class="brand"><span>吸塑报价 <span class="brand-divider">/</span> 尺寸设计</span></div>
+    <div class="header-actions"><a class="text-button header-link" href="./">返回报价</a><span class="preview-badge">内部使用</span></div>
+  </header>
+  <main>
+    <div class="page-intro"><div><p class="eyebrow">PRODUCT TO TRAY</p><h1>只有产品？先设计吸塑尺寸。</h1><p class="design-intro">从客户产品的最大外形，推算单腔吸塑的净腔、开口与裁切外形。</p></div></div>
+    <div class="design-scope"><strong>初步尺寸设计 · 始终待复核</strong><p>适用于规则矩形或圆柱产品、单腔、放入式配合。产品、吸塑成品与模具尺寸分别列出；实物、圆角占位与试模确认后再定稿。模具结果仅供工程参考，不能直接用于加工。</p></div>
+    <div class="design-layout">
+      <form id="design-form" novalidate>
+        <section class="form-card" aria-labelledby="product-heading">
+          <div class="section-heading"><h2 id="product-heading"><span class="section-number">01</span> 客户产品</h2><span>无需先填价格或数量</span></div>
+          <div class="form-body">
+            <div class="design-two-columns">
+              <div class="field"><label for="product-shape">产品包络形状</label><select id="product-shape"><option value="rectangle">矩形</option><option value="circle">圆柱（圆形底面）</option></select></div>
+              <div class="field"><label for="product-unit">产品尺寸单位</label><select id="product-unit"><option value="mm">毫米 mm</option><option value="cm">厘米 cm</option></select></div>
+            </div>
+            <div class="dimension-grid design-product-dimensions">
+              <div class="field"><label for="product-length" id="product-length-label">最大长度</label><div class="input-wrap"><input id="product-length" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 100" required><span class="product-unit">mm</span></div></div>
+              <div class="field" id="product-width-field"><label for="product-width">最大宽度</label><div class="input-wrap"><input id="product-width" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 60" required><span class="product-unit">mm</span></div></div>
+              <div class="field"><label for="product-height">最大高度</label><div class="input-wrap"><input id="product-height" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 20" required><span class="product-unit">mm</span></div></div>
+            </div>
+            <label class="design-check"><input id="product-maximum" type="checkbox"><span>已按最大包络测量，包含凸起和产品尺寸公差</span></label>
+            <div class="field"><label for="product-source">尺寸来源 <span class="optional">选填</span></label><input id="product-source" class="design-text-input" type="text" maxlength="160" placeholder="例如：客户实测 / 图纸版本 / 样品编号"></div>
+          </div>
+        </section>
+        <section class="form-card" aria-labelledby="cavity-heading">
+          <div class="section-heading"><h2 id="cavity-heading"><span class="section-number">02</span> 吸塑净腔与裁切</h2><span>下列参数统一用 mm</span></div>
+          <div class="form-body">
+            <p class="design-reference-note">每侧间隙 1 mm、拔模 3°、净口到裁切线 8 mm 是可改的待核准试算值，需按产品、材料和工艺确认。</p>
+            <div class="design-parameter-grid">
+              <div class="field"><label for="clearance">每侧装入间隙</label><div class="input-wrap"><input id="clearance" type="text" inputmode="decimal" value="1"><span>mm</span></div></div>
+              <div class="field"><label for="draft-angle">净腔拔模角</label><div class="input-wrap"><input id="draft-angle" type="text" inputmode="decimal" value="3"><span>°</span></div></div>
+              <div class="field"><label for="rim">完成后净口到裁切线</label><div class="input-wrap"><input id="rim" type="text" inputmode="decimal" value="8"><span>mm</span></div></div>
+              <div class="field"><label for="pocket-depth">使用净腔深度 <span class="optional">选填</span></label><div class="input-wrap"><input id="pocket-depth" type="text" inputmode="decimal" placeholder="默认等于产品高度"><span>mm</span></div></div>
+              <div class="field"><label for="negative-tolerance">底部成型负公差补偿 <span class="optional">选填</span></label><div class="input-wrap"><input id="negative-tolerance" type="text" inputmode="decimal" placeholder="未填按 0 试算"><span>mm</span></div></div>
+              <div class="field"><label for="quote-height">实际成型外高 <span class="optional">选填</span></label><div class="input-wrap"><input id="quote-height" type="text" inputmode="decimal" placeholder="报价暂按净腔深度"><span>mm</span></div></div>
+            </div>
+            <p class="field-hint">深度小于产品高时会列出露出量。负公差补偿作用于整条底部尺寸，不是每侧；报价高度未填时用净腔深度做初估。排版边料与出血仍由报价引擎单独计算。</p>
+          </div>
+        </section>
+        <details id="design-advanced" class="form-card design-advanced">
+          <summary>03 工厂高级参数 <span>阴阳模 / 收缩 / 有效偏置</span></summary>
+          <div class="form-body">
+            <p class="design-reference-note">可以留空，先估吸塑尺寸。模具参数不足时保留缺项，不能据此加工。有效偏置须来自对应特征的实测或 CAD，不可填原片厚度替代。</p>
+            <div class="design-two-columns">
+              <div class="field"><label for="design-mold-type">模具类型</label><select id="design-mold-type"><option value="">待工厂确认</option><option value="male">阳模（接触塑料内表面）</option><option value="female">阴模（接触塑料外表面）</option></select></div>
+              <div class="field"><label for="lining-type">净腔覆层</label><select id="lining-type"><option value="none">无覆层</option><option value="flock">植绒</option><option value="cloth">植布</option></select></div>
+            </div>
+            <div class="design-offset-group" id="lining-offsets" hidden>
+              <h3>覆层有效补偿</h3><p class="field-hint">净腔转为塑料内表面目标。底部与开口是对应特征的单侧偏置；净深差单独填写，均可为有符号数。</p>
+              <div class="design-parameter-grid">
+                <div class="field"><label for="lining-bottom">底部单侧有效偏置</label><div class="input-wrap"><input id="lining-bottom" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+                <div class="field"><label for="lining-opening">开口单侧有效偏置</label><div class="input-wrap"><input id="lining-opening" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+                <div class="field"><label for="lining-depth">净深有效差</label><div class="input-wrap"><input id="lining-depth" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+              </div>
+              <div class="field"><label for="lining-source">覆层偏置依据</label><input id="lining-source" class="design-text-input" type="text" maxlength="160" placeholder="实测记录 / CAD 版本"></div>
+            </div>
+            <div class="design-offset-group" id="mold-offsets" hidden>
+              <h3>阴模接触面有效补偿</h3><p class="field-hint">塑料内表面转为模具接触特征，不等于原片厚或任意水平截面的壁厚；均可为有符号数。</p>
+              <div class="design-parameter-grid">
+                <div class="field"><label for="mold-bottom">底部单侧有效偏置</label><div class="input-wrap"><input id="mold-bottom" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+                <div class="field"><label for="mold-opening">开口单侧有效偏置</label><div class="input-wrap"><input id="mold-opening" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+                <div class="field"><label for="mold-depth">净深有效差</label><div class="input-wrap"><input id="mold-depth" type="text" inputmode="decimal" placeholder="未知留空"><span>mm</span></div></div>
+              </div>
+            </div>
+            <div class="design-offset-group">
+              <h3>从稳定成品反推模具收缩补偿</h3>
+              <p class="field-hint">此处填百分数，例如 0.5 表示 0.5%（计算系数 0.005）。0% 是明确值；空白表示未知。不按材料名称猜系数。</p>
+              <div class="field"><label for="shrinkage-mode">收缩系数方向</label><select id="shrinkage-mode"><option value="uniform">统一百分比</option><option value="axes">长 / 宽 / 深分别填写</option></select></div>
+              <div class="field" id="shrinkage-uniform"><label for="shrinkage-percent">统一收缩率</label><div class="input-wrap"><input id="shrinkage-percent" type="text" inputmode="decimal" placeholder="未知留空"><span>%</span></div></div>
+              <div class="design-parameter-grid" id="shrinkage-axes" hidden>
+                <div class="field"><label for="shrinkage-length">长度方向收缩率</label><div class="input-wrap"><input id="shrinkage-length" type="text" inputmode="decimal" placeholder="未知留空"><span>%</span></div></div>
+                <div class="field"><label for="shrinkage-width">宽度方向收缩率</label><div class="input-wrap"><input id="shrinkage-width" type="text" inputmode="decimal" placeholder="未知留空"><span>%</span></div></div>
+                <div class="field"><label for="shrinkage-height">深度方向收缩率</label><div class="input-wrap"><input id="shrinkage-height" type="text" inputmode="decimal" placeholder="未知留空"><span>%</span></div></div>
+              </div>
+              <div class="field"><label for="tooling-source">模具偏置 / 收缩依据</label><input id="tooling-source" class="design-text-input" type="text" maxlength="160" placeholder="材料、机台、方向、温度、实测记录"></div>
+            </div>
+          </div>
+        </details>
+        <div id="design-error" class="form-error" role="alert" hidden></div>
+        <button type="submit" id="design-calculate" class="primary-button design-calculate">计算初步尺寸 <span aria-hidden="true">→</span></button>
+      </form>
+      <aside id="design-result" class="form-card design-result" aria-labelledby="design-result-title" aria-busy="false">
+        <div class="design-result-header"><h2 id="design-result-title">从产品到吸塑</h2><span id="design-status" class="status-badge" role="status">等待产品尺寸</span></div>
+        <div class="form-body">
+          <p id="design-result-message" class="field-hint">先填客户产品尺寸，基础参数可直接修改。无需价格、材料或数量。</p>
+          <dl class="design-dimensions">
+            <div><dt>产品最大包络</dt><dd id="design-product">—</dd></div>
+            <div><dt>使用净腔底</dt><dd id="design-bottom">—</dd></div>
+            <div><dt>使用净开口</dt><dd id="design-opening">—</dd></div>
+            <div><dt>净腔深度 / 产品露出</dt><dd id="design-depth">—</dd></div>
+            <div class="design-trim-row"><dt>吸塑裁切外形</dt><dd id="design-trim">—</dd></div>
+            <div><dt>用于初步报价的外形</dt><dd id="design-quote-dimensions">—</dd></div>
+          </dl>
+          <figure id="design-diagram" class="design-diagram" hidden><svg id="design-diagram-svg" viewBox="0 0 360 350" role="img" aria-label="按本次尺寸绘制的吸塑俯视与长向剖面示意"></svg><div class="design-diagram-legend"><span class="diagram-product">产品</span><span class="diagram-bottom">净腔底</span><span class="diagram-opening">净开口</span><span class="diagram-trim">裁切线</span></div><figcaption>理想直壁、尖角示意，非加工图；准确尺寸以分层结果为准。</figcaption></figure>
+          <section class="design-tooling"><h3>单穴模具工程参考</h3><div id="design-mold">尚未计算。参数不全时显示缺项，不生成模具尺寸。</div><div id="design-contact"></div></section>
+          <div id="design-review-lists" hidden>
+            <details open class="design-review"><summary>试算依据与待核准项</summary><ul id="design-assumptions"></ul><ul id="design-pending"></ul></details>
+            <div id="design-warnings" class="design-review-warning" hidden></div>
+          </div>
+          <div class="design-transfer-panel">
+            <p>带入的是吸塑裁切外形；报价高度按净腔深度初估，或采用填写的实际成型外高。所有结果仍待样品确认。</p>
+            <label class="design-check"><input type="checkbox" id="design-accept" disabled><span>我接受按本方案做初步报价</span></label>
+            <button type="button" id="design-transfer" class="primary-button" disabled>带入报价 <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>修改任何设计输入后，都需重新计算并确认。</span><span>模具工程参考不等于加工放行。</span></footer>
+  </main>
+</body>
+</html>
