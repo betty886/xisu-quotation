@@ -5,7 +5,7 @@ const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const {quote: quoteWithEngine} = require('./quote.cjs');
 
-const VERSION_RULE = '待确认：订单编号由使用人必填；尺寸、穴数、片材尺寸、材料、颜色、数量、厚度或克重、模具变更时版本加一。旧计算和旧导出标为过期并在规格仍完整时重算，保留来源版本。';
+const VERSION_RULE = '订单编号由使用人必填。尺寸、穴数、片材尺寸、材料、颜色、数量、厚度或克重、模具变更时版本加一。旧计算和旧导出标为过期；排模仍完整时重算，并保留来源版本。';
 const LAYOUT_FIELDS = ['length_cm', 'width_cm', 'height_cm', 'sheet_length_cm', 'sheet_width_cm', 'cavities'];
 const WATCHED = [...LAYOUT_FIELDS, 'material', 'color', 'quantity', 'measured_thickness_mm', 'weight_g', 'weight_basis', 'mold_type', 'defect_rate'];
 const LENGTH_FIELDS = ['length', 'width', 'height', 'sheet_length', 'sheet_width'];
@@ -110,10 +110,12 @@ function recognitionIssues(payload) {
   return issues;
 }
 
-function ingestRecognition(order, payload) {
+function ingestRecognition(order, payload, config, deps = {}) {
   const issues = recognitionIssues(payload);
+  const hadConfirmed = order.layout?.status === 'confirmed' && order.layout.confirmed;
   order.recognition = {status: 'pending_confirmation', payload: clone(payload), issues};
   order.layout = {status: 'pending_confirmation', source: 'recognition', confirmed: null, issues};
+  if (hadConfirmed) return invalidateForSpecChange(order, config, deps, false);
   order.quote = null;
   return order;
 }
@@ -137,22 +139,37 @@ function validateConfirmed(input) {
   return '';
 }
 
-function confirmLayout(order, input) {
+function confirmedNumbers(input) {
+  return {
+    length_cm: Number(input.length_cm),
+    width_cm: Number(input.width_cm),
+    height_cm: Number(input.height_cm),
+    sheet_length_cm: Number(input.sheet_length_cm),
+    sheet_width_cm: Number(input.sheet_width_cm),
+    cavities: Number(input.cavities)
+  };
+}
+function confirmLayout(order, input, config, deps = {}) {
   const issue = validateConfirmed(input);
   if (issue) fail(issue);
+  const next = confirmedNumbers(input);
+  const previous = order.layout?.status === 'confirmed' ? order.layout.confirmed : null;
+  const changed = previous && LAYOUT_FIELDS.some(key => !same(previous[key], next[key]));
+  const resumeExpired = !previous && order.quote && order.quote.expired;
   order.layout = {
     status: 'confirmed',
     source: order.recognition ? 'recognition_confirmed' : 'manual',
-    confirmed: {
-      length_cm: Number(input.length_cm),
-      width_cm: Number(input.width_cm),
-      height_cm: Number(input.height_cm),
-      sheet_length_cm: Number(input.sheet_length_cm),
-      sheet_width_cm: Number(input.sheet_width_cm),
-      cavities: Number(input.cavities)
-    },
+    confirmed: next,
     issues: []
   };
+  if (changed) {
+    if (!config) fail('变更已确认排模时必须提供报价参数以便重算。');
+    return invalidateForSpecChange(order, config, deps, true);
+  }
+  if (resumeExpired) {
+    if (!config) fail('重新确认排模时必须提供报价参数以便重算。');
+    return calculateQuote(order, config, deps);
+  }
   return order;
 }
 
@@ -311,31 +328,32 @@ function expireCurrent(order, nextVersion) {
   order.formal_quote = null;
 }
 
+function invalidateForSpecChange(order, config, deps = {}, recalculate = false) {
+  const nextVersion = order.version + 1;
+  expireCurrent(order, nextVersion);
+  order.version = nextVersion;
+  if (recalculate && order.layout?.status === 'confirmed' && order.layout.confirmed && gateErrors(order).length === 0) {
+    return calculateQuote(order, config, deps);
+  }
+  order.quote = {status: 'expired', version: order.version, expired: true, errors: ['规格已变更，旧报价已过期。'], summary: null, selling_price: null};
+  return order;
+}
 function updateSpec(order, patch, config, deps = {}) {
   const current = currentFlat(order);
   const changed = WATCHED.filter(key => Object.prototype.hasOwnProperty.call(patch, key) && !same(current[key], patch[key]));
   if (!changed.length) return order;
-  const nextVersion = order.version + 1;
-  expireCurrent(order, nextVersion);
-  order.version = nextVersion;
   const nextLayout = {...(order.layout.confirmed || {})};
   for (const key of LAYOUT_FIELDS) if (key in patch) nextLayout[key] = patch[key];
   if (LAYOUT_FIELDS.some(key => changed.includes(key))) {
     const issue = validateConfirmed(nextLayout);
-    if (issue) {
-      order.layout = {status: 'pending_confirmation', source: order.layout.source, confirmed: null, issues: [issue]};
-      order.quote = {status: 'expired', version: order.version, expired: true, errors: ['规格已变更，旧报价已过期，新排模尚未确认。'], summary: null, selling_price: null};
-      return order;
-    }
-    order.layout = {status: 'confirmed', source: 'manual', confirmed: {
-      length_cm: Number(nextLayout.length_cm), width_cm: Number(nextLayout.width_cm), height_cm: Number(nextLayout.height_cm),
-      sheet_length_cm: Number(nextLayout.sheet_length_cm), sheet_width_cm: Number(nextLayout.sheet_width_cm), cavities: Number(nextLayout.cavities)
-    }, issues: []};
+    if (issue) order.layout = {status: 'pending_confirmation', source: order.layout.source, confirmed: null, issues: [issue]};
+    else order.layout = {status: 'confirmed', source: 'manual', confirmed: confirmedNumbers(nextLayout), issues: []};
   }
   for (const key of WATCHED) if (key in patch && !LAYOUT_FIELDS.includes(key)) order.spec[key] = patch[key];
   if ('product_name' in patch) order.product_name = text(patch.product_name);
   if ('spec_text' in patch) order.spec_text = text(patch.spec_text);
-  return calculateQuote(order, config, deps);
+  const canRecalc = order.layout?.status === 'confirmed' && gateErrors(order).length === 0;
+  return invalidateForSpecChange(order, config, deps, canRecalc);
 }
 
 function sellingUnit(order) {
@@ -367,13 +385,24 @@ function deliveryPayload(order, shipment) {
   };
 }
 
-function runDelivery(payload, xlsx, pdf) {
+function repoRelative(target) {
+  const relative = path.relative(REPO_ROOT, path.resolve(target));
+  if (relative === '') return '';
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  return relative;
+}
+function runDelivery(payload, xlsx, pdf, options = {}) {
+  const profile = options.profile === 'official' ? 'official' : 'anonymized';
+  const template = options.template || (profile === 'official' ? process.env.XISU_OFFICIAL_DELIVERY_TEMPLATE : TEMPLATE);
+  if (!template) fail('请指定送货单范本。正式范本用仓库外路径，公开样例用脱敏范本。');
+  if (profile === 'official' && repoRelative(template) !== null) fail('正式送货单范本必须放在仓库外。');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'delivery-payload-'));
   const input = path.join(directory, 'payload.json');
   fs.writeFileSync(input, JSON.stringify(payload));
   const completed = spawnSync('python3', [
     path.join(__dirname, 'delivery_note.py'),
-    '--template', TEMPLATE,
+    '--profile', profile,
+    '--template', template,
     '--input', input,
     '--xlsx', xlsx,
     ...(pdf ? ['--pdf', pdf] : [])
@@ -383,19 +412,20 @@ function runDelivery(payload, xlsx, pdf) {
   return JSON.parse(completed.stdout);
 }
 
-function renderDelivery(order, shipmentId, outDir) {
+function renderDelivery(order, shipmentId, outDir, options = {}) {
   const shipment = order.shipments.find(item => item.id === shipmentId);
   if (!shipment) fail('找不到这次出货记录。');
   fs.mkdirSync(outDir, {recursive: true});
   const stem = `${order.order_no}-v${order.version}-ship${shipment.id}`;
   const xlsx = path.join(outDir, `${stem}.xlsx`);
   const pdf = path.join(outDir, `${stem}.pdf`);
-  const written = runDelivery(deliveryPayload(order, shipment), xlsx, pdf);
+  const written = runDelivery(deliveryPayload(order, shipment), xlsx, pdf, options);
   order.exports.push({
     id: order.exports.length + 1,
     shipment_id: shipment.id,
     version: order.version,
     status: 'current',
+    profile: options.profile === 'official' ? 'official' : 'anonymized',
     xlsx, pdf,
     uppercase: written.uppercase,
     total: written.total
@@ -439,10 +469,9 @@ function orderFile(dir, orderNo) {
   return path.join(dir, `${orderNo}.json`);
 }
 function assertStore(dir) {
-  const resolved = path.resolve(dir);
-  const relative = path.relative(REPO_ROOT, resolved);
-  const inside = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
-  if (inside && !['private', 'quotes', 'outputs'].includes(relative.split(path.sep)[0])) {
+  const relative = repoRelative(dir);
+  if (relative === '') fail('不能把订单写到仓库根目录。');
+  if (relative !== null && !['private', 'quotes', 'outputs'].includes(relative.split(path.sep)[0])) {
     fail('运行时订单只能写在仓库外，或仓库内已忽略的 private、quotes、outputs。');
   }
 }
@@ -461,6 +490,9 @@ function readOption(args, name) {
   if (index < 0) return '';
   return args[index + 1] || '';
 }
+function loadParameterConfig(args) {
+  return JSON.parse(fs.readFileSync(readOption(args, '--config') || path.join(__dirname, '../assets/parameters.reference.json'), 'utf8'));
+}
 
 function main() {
   const [command, ...args] = process.argv.slice(2);
@@ -475,14 +507,15 @@ function main() {
   if (!orderNo) fail('请用 --order-no 指定订单编号。');
   const order = loadOrder(dir, orderNo);
   if (command === 'recognize') {
-    ingestRecognition(order, JSON.parse(fs.readFileSync(readOption(args, '--file'), 'utf8')));
+    ingestRecognition(order, JSON.parse(fs.readFileSync(readOption(args, '--file'), 'utf8')), loadParameterConfig(args));
   } else if (command === 'confirm-layout') {
-    confirmLayout(order, JSON.parse(fs.readFileSync(readOption(args, '--file'), 'utf8')));
+    confirmLayout(order, JSON.parse(fs.readFileSync(readOption(args, '--file'), 'utf8')), loadParameterConfig(args));
+  } else if (command === 'update-spec') {
+    updateSpec(order, JSON.parse(fs.readFileSync(readOption(args, '--file'), 'utf8')), loadParameterConfig(args));
   } else if (command === 'quote') {
-    const config = JSON.parse(fs.readFileSync(readOption(args, '--config') || path.join(__dirname, '../assets/parameters.reference.json'), 'utf8'));
-    calculateQuote(order, config);
+    calculateQuote(order, loadParameterConfig(args));
   } else if (command === 'confirm-formal') {
-    const config = JSON.parse(fs.readFileSync(readOption(args, '--config') || path.join(__dirname, '../assets/parameters.reference.json'), 'utf8'));
+    const config = loadParameterConfig(args);
     const result = confirmFormalQuote(order, config);
     saveOrder(dir, order);
     console.log(JSON.stringify({ok: result.ok, reasons: result.reasons, view: operatorView(order)}, null, 2));
@@ -491,12 +524,17 @@ function main() {
   } else if (command === 'ship') {
     recordShipment(order, {quantity: Number(readOption(args, '--qty')), date: readOption(args, '--date'), mold_fee: readOption(args, '--mold-fee')});
   } else if (command === 'deliver') {
-    renderDelivery(order, Number(readOption(args, '--shipment')), path.resolve(readOption(args, '--out') || path.join(REPO_ROOT, 'private/outputs')));
+    const profile = readOption(args, '--profile') || 'anonymized';
+    const template = readOption(args, '--template');
+    renderDelivery(order, Number(readOption(args, '--shipment')), path.resolve(readOption(args, '--out') || path.join(REPO_ROOT, 'private/outputs')), {
+      profile,
+      ...(template ? {template} : {})
+    });
   } else if (command === 'show') {
     console.log(JSON.stringify(operatorView(order), null, 2));
     return;
   } else {
-    fail('命令应为 init、recognize、confirm-layout、quote、confirm-formal、ship、deliver 或 show。');
+    fail('命令应为 init、recognize、confirm-layout、update-spec、quote、confirm-formal、ship、deliver 或 show。');
   }
   saveOrder(dir, order);
   console.log(JSON.stringify(operatorView(order), null, 2));

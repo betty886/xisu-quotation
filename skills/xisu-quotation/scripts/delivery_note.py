@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Fill the anonymized Tonghou delivery-note workbook and export PDF.
+"""Fill a delivery-note workbook and export PDF.
 
-Only allowlisted customer-visible fields are written. The script does not
-stamp, sign, or send the file.
+Copies the chosen template, writes the shipment fields, and can convert to PDF.
+Sample output uses the anonymized template. Official output uses a template
+path supplied by the caller and does not add sample document titles.
+The script does not stamp, sign, or send the file.
 """
 from __future__ import annotations
 
@@ -135,7 +137,11 @@ def valid_date(value: str) -> str:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 
-def checked_payload(raw: dict) -> dict:
+def blank(value) -> bool:
+    return value is None or (isinstance(value, str) and value.strip() == "")
+
+
+def checked_payload(raw: dict, profile: str = "anonymized") -> dict:
     if not isinstance(raw, dict):
         raise ValueError("送货单数据须为对象。")
     leaked = sorted(set(raw) & INTERNAL_KEYS)
@@ -171,12 +177,25 @@ def checked_payload(raw: dict) -> dict:
         mold_fee = money(mold)
         if mold_fee <= 0:
             raise ValueError("模具费须为正数；没有模具费时留空。")
-    supplier_name = str(raw.get("supplier_name") or DEFAULT_SUPPLIER["name"]).strip()
-    supplier_address = str(raw.get("supplier_address") or DEFAULT_SUPPLIER["address"]).strip()
-    supplier_phone = str(raw.get("supplier_phone") or DEFAULT_SUPPLIER["phone"]).strip()
+    official = profile == "official"
+    supplier_name = raw.get("supplier_name")
+    supplier_address = raw.get("supplier_address")
+    supplier_phone = raw.get("supplier_phone")
+    if not official:
+        supplier_name = str(supplier_name or DEFAULT_SUPPLIER["name"]).strip()
+        supplier_address = str(supplier_address or DEFAULT_SUPPLIER["address"]).strip()
+        supplier_phone = str(supplier_phone or DEFAULT_SUPPLIER["phone"]).strip()
+    else:
+        supplier_name = None if blank(supplier_name) else str(supplier_name).strip()
+        supplier_address = None if blank(supplier_address) else str(supplier_address).strip()
+        supplier_phone = None if blank(supplier_phone) else str(supplier_phone).strip()
+    address_line = None
+    if supplier_address is not None or supplier_phone is not None or not official:
+        address_line = f"地址：{supplier_address or ''}    电话：{supplier_phone or ''}"
     return {
+        "profile": profile,
         "supplier_name": supplier_name,
-        "address_line": f"地址：{supplier_address}    电话：{supplier_phone}",
+        "address_line": address_line,
         "customer_name": label("客户名称：", raw.get("customer_name")),
         "customer_phone": label("客户电话：", raw.get("customer_phone")),
         "customer_address": label("客户地址：", raw.get("customer_address")),
@@ -204,6 +223,23 @@ def clear_row(ws, row: int) -> None:
         ws[f"{column}{row}"].value = None
 
 
+def apply_properties(wb, profile: str) -> None:
+    if profile == "official":
+        wb.properties.title = "送货单"
+        wb.properties.creator = ""
+        wb.properties.lastModifiedBy = ""
+        wb.properties.subject = ""
+        wb.properties.description = ""
+        wb.properties.keywords = ""
+        return
+    wb.properties.title = "示例送货单"
+    wb.properties.creator = "示例"
+    wb.properties.lastModifiedBy = "示例"
+    wb.properties.subject = "虚构送货单"
+    wb.properties.description = "Fictional delivery note. No seal."
+    wb.properties.keywords = ""
+
+
 def write_workbook(template: Path, payload: dict, target: Path) -> Decimal:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(template, target)
@@ -213,9 +249,11 @@ def write_workbook(template: Path, payload: dict, target: Path) -> Decimal:
     ws = wb.active
     if ws.sheet_state != "visible":
         raise ValueError("范本工作表不是可见表。")
-    ws["A1"] = payload["supplier_name"]
+    if payload["supplier_name"] is not None:
+        ws["A1"] = payload["supplier_name"]
     ws["X1"] = "送  货  单"
-    ws["A2"] = payload["address_line"]
+    if payload["address_line"] is not None:
+        ws["A2"] = payload["address_line"]
     ws["A4"] = payload["customer_name"]
     ws["N4"] = payload["customer_phone"]
     ws["X4"] = payload["order_no"]
@@ -266,12 +304,7 @@ def write_workbook(template: Path, payload: dict, target: Path) -> Decimal:
     ws.page_margins.bottom = 0.3
     ws.page_margins.header = 0.511811023622047
     ws.page_margins.footer = 0.511811023622047
-    wb.properties.title = "示例送货单"
-    wb.properties.creator = "示例"
-    wb.properties.lastModifiedBy = "示例"
-    wb.properties.subject = "虚构送货单"
-    wb.properties.description = "Fictional delivery note. No seal."
-    wb.properties.keywords = ""
+    apply_properties(wb, payload.get("profile") or "anonymized")
     if getattr(ws, "_images", None):
         raise ValueError("送货单不能包含图片或印章。")
     wb.save(target)
@@ -337,7 +370,8 @@ def inspect_workbook(path: Path) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="按脱敏送货单范本填写本次出货")
+    parser = argparse.ArgumentParser(description="填写送货单可变字段并导出 PDF")
+    parser.add_argument("--profile", choices=["anonymized", "official"], default="anonymized")
     parser.add_argument("--template")
     parser.add_argument("--input")
     parser.add_argument("--xlsx")
@@ -352,7 +386,7 @@ def main() -> int:
         json.dump(inspect_workbook(Path(args.inspect)), sys.stdout, ensure_ascii=False)
         print()
         return 0
-    payload = checked_payload(json.loads(Path(args.input).read_text(encoding="utf-8")))
+    payload = checked_payload(json.loads(Path(args.input).read_text(encoding="utf-8")), args.profile)
     total = write_workbook(Path(args.template), payload, Path(args.xlsx))
     if args.pdf:
         convert_pdf(Path(args.xlsx), Path(args.pdf))
