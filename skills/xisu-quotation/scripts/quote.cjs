@@ -29,7 +29,17 @@ function quoteRaw(order,config){
   Object.assign(rules.freight,{cartonLengthCm:freight.carton_length_cm,cartonWidthCm:freight.carton_width_cm,cartonHeightCm:freight.carton_height_cm,ratePerM3:freight.rate_per_m3});
  }
  const frac=(value,label)=>{const a=missing(value)?0:n(value,label,{zero:true});if(a>=1)throw Error(label+'必须小于1。');return a*100};
- const input={shape:order.shape||'rectangle',lengthCm:order.length_cm,widthCm:order.width_cm,heightCm:order.height_cm,customAreaCm2:order.custom_area_cm2,moldType:mold,bleedCm,quantity:order.quantity,material:order.material,color:order.color,thicknessMm:thickness,weightG:weight,rejectRate:frac(order.defect_rate,'不良率'),targetMargin:frac(order.extra_margin_rate??config.default_extra_margin_rate,'额外毛利率'),minMargin:frac(config.minimum_margin_rate,'最低毛利率'),taxIncluded:order.tax_included??true,priceConfirmed:true,manualUnit:'',clothPricePerM2:cloth?price:undefined,clothProcessingPerSheet:cloth?base:undefined,moldFee:pt.mold_fee??0,packagingFee:pt.packaging_fee??0,otherFee:pt.other_fee??0,freightMode:mode==='manual'?'手填':mode==='volume'?'按体积':'自提',freightTotal:freight.amount,packPerBox:freight.pieces_per_box};
+ const confirmedKeys=['confirmed_sheet_length_cm','confirmed_sheet_width_cm','confirmed_cavities'];
+ const confirmedPresent=confirmedKeys.filter(key=>!missing(order[key]));
+ if(confirmedPresent.length&&confirmedPresent.length!==3)throw Error('已确认排模须同时提供片材长度、片材宽度和穴数。');
+ let confirmedSheetLengthCm,confirmedSheetWidthCm,confirmedCavities;
+ if(confirmedPresent.length===3){
+  confirmedSheetLengthCm=n(order.confirmed_sheet_length_cm,'已确认片材长度');
+  confirmedSheetWidthCm=n(order.confirmed_sheet_width_cm,'已确认片材宽度');
+  confirmedCavities=n(order.confirmed_cavities,'已确认穴数');
+  if(!Number.isSafeInteger(confirmedCavities))throw Error('已确认穴数须为有效正整数。');
+ }
+ const input={shape:order.shape||'rectangle',lengthCm:order.length_cm,widthCm:order.width_cm,heightCm:order.height_cm,customAreaCm2:order.custom_area_cm2,moldType:mold,bleedCm,quantity:order.quantity,material:order.material,color:order.color,thicknessMm:thickness,weightG:weight,rejectRate:frac(order.defect_rate,'不良率'),targetMargin:frac(order.extra_margin_rate??config.default_extra_margin_rate,'额外毛利率'),minMargin:frac(config.minimum_margin_rate,'最低毛利率'),taxIncluded:order.tax_included??true,priceConfirmed:true,manualUnit:'',clothPricePerM2:cloth?price:undefined,clothProcessingPerSheet:cloth?base:undefined,moldFee:pt.mold_fee??0,packagingFee:pt.packaging_fee??0,otherFee:pt.other_fee??0,freightMode:mode==='manual'?'手填':mode==='volume'?'按体积':'自提',freightTotal:freight.amount,packPerBox:freight.pieces_per_box,confirmedSheetLengthCm,confirmedSheetWidthCm,confirmedCavities};
  if(typeof input.taxIncluded!=='boolean')throw Error('tax_included 必须为 true 或 false。');
  const result=calculateTray(input,rules);const errors=[...result.errors,...result.blockers];if(errors.length||!result.canQuote)return {status:'blocked',errors,warnings:result.warnings};
  // Show both prices using independent calculations before unit rounding.

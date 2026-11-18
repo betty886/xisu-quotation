@@ -89,3 +89,14 @@ node scripts/quote.cjs 订单.json 自己的参数.json
 - `skills/xisu-quotation/references/`：通用计算规则、植布规则与教学算例。
 
 客户信息和本厂私有价格建议放在仓库外，或保存到 `private/`、`*.local.json`。内置参考值不等同于实时市场价格。
+
+## 订单、算料与送货单
+
+排模确认、算料、报价和送货单共用一份订单档案，订单编号由使用人填写。算价只调用 `scripts/quote.cjs`。已确认的片材尺寸和穴数会原样进入报价；没有这项覆盖时，排版与原来一致。连续计价张数、排产整张数和小单张数分开显示。不良率不填则按 0，并标明未计损耗。
+
+公开参考参数的 `price_confirmed` 不是 true，不能变成正式报价。正式确认不会自动写出货。送货单按 `templates/delivery-note-anonymized.xlsx` 填写本次出货数量和日期。说明见 [订单流转](skills/xisu-quotation/references/order-flow.md)。
+
+```text
+node skills/xisu-quotation/scripts/order-flow.cjs init --dir private/orders --order-no DEMO-E2E-001 --customer 示例客户 --product 示例吸塑产品
+node skills/xisu-quotation/scripts/order-flow.cjs show --dir private/orders --order-no DEMO-E2E-001
+```

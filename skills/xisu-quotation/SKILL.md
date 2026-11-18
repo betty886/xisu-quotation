@@ -186,3 +186,5 @@ Windows 可运行技能目录中的 `启动报价台.cmd`；其他系统可在�
 
 计算完整不等于获得正式确认。教学、假设或尚未核准参数的结果保持 `pending_review`；有阻断项则用 `blocked`。
 补齐实际参数并完成使用者复核后，重新核算，再按其明确确认记录正式状态；保留此前版本及来源标记。
+
+订单编号、版本、已确认排模、出货和送货单见 [订单流转](references/order-flow.md)。识别结果只作为待确认输入，图不清不猜测。已确认的片材尺寸和穴数用 `confirmed_sheet_length_cm`、`confirmed_sheet_width_cm`、`confirmed_cavities` 交给本脚本，未提供时仍按两方向排版。正式报价还要求参数 `price_confirmed` 为 true，且不是演示数据；公开参考参数不能变成正式报价。报价确认不会自动出货。
