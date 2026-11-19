@@ -1,11 +1,15 @@
 'use strict';
 
 const fs = require('node:fs');
+const { estimate } = require('./station-layout.cjs');
 const fields = new Set([
   'mode', 'yieldBasis', 'quantity', 'cavities', 'pieceWeight', 'yieldPercent',
   'sheetLengthMm', 'sheetWidthMm', 'thicknessMm', 'density', 'pieceAreaCm2',
   'cycleSeconds', 'shiftHours', 'shiftBilling', 'shiftCost', 'materialPrice', 'scrapPrice',
   'boxCapacity', 'boxPrice', 'loadingCost', 'moldCost', 'otherCost', 'taxPercent', 'targetProfit',
+  'sheetSource', 'productLengthMm', 'productWidthMm', 'gapMm', 'edgeMm',
+  'layoutMethod', 'layoutOrientation', 'layoutAlongLength', 'layoutAlongWidth',
+  'maxMoldLengthMm', 'maxMoldWidthMm',
 ]);
 
 class StationInputError extends Error {}
@@ -37,17 +41,30 @@ function quoteStation(order) {
   const count = { ...positive, integer: true };
   const optional = { optional: true };
   const quantity = read('quantity', '订单数量', count);
-  const cavities = read('cavities', '每模件数', count);
   const mode = order.mode ?? 'weight';
   const basis = mode === 'weight' ? 'provided' : order.yieldBasis ?? 'measured';
   if (!['weight', 'sheet'].includes(mode) || !['measured', 'projection', 'provided'].includes(basis)) {
     throw new StationInputError('请选择合适的投料方式和成品率依据。');
   }
 
+  const sheetSource = mode === 'sheet' ? order.sheetSource || 'actual' : null;
+  if (sheetSource !== null && !['actual', 'layout'].includes(sheetSource)) {
+    throw new StationInputError('请选择拉片尺寸来源。');
+  }
+  let layout = null;
+  if (sheetSource === 'layout') {
+    try { layout = estimate(order); }
+    catch (error) { throw new StationInputError(error.message); }
+  }
+  const cavities = layout?.cavities ?? read('cavities', '每模件数', count);
   let sheetArea;
+  let sheetLengthMm = null;
+  let sheetWidthMm = null;
   let inputPerCycle;
   if (mode === 'sheet') {
-    sheetArea = read('sheetLengthMm', '拉片长度', positive) * read('sheetWidthMm', '拉片宽度', positive);
+    sheetLengthMm = layout?.sheetLengthMm ?? read('sheetLengthMm', '拉片长度', positive);
+    sheetWidthMm = layout?.sheetWidthMm ?? read('sheetWidthMm', '拉片宽度', positive);
+    sheetArea = sheetLengthMm * sheetWidthMm;
     inputPerCycle = sheetArea * read('thicknessMm', '原片厚度', positive) * read('density', '原片比重', positive) / 1000;
   }
   let pieceWeight;
@@ -110,7 +127,7 @@ function quoteStation(order) {
     currency: 'CNY', quantity, untaxedUnitPrice, taxedUnitPrice,
     untaxedTotal: total(untaxedUnitPrice), taxedTotal: total(taxedUnitPrice),
     inputKg, yieldPercent: yieldRatio * 100, pieceWeight, piecesPerShift,
-    yieldBasis: basis, loadingIncluded: loading !== null,
+    yieldBasis: basis, sheetSource, layout, cavities, sheetLengthMm, sheetWidthMm, loadingIncluded: loading !== null,
   };
   if (Object.values(result).some(v => typeof v === 'number' && !Number.isFinite(v))) {
     throw new StationInputError('数值超出算价范围，请核对单位。');
@@ -120,12 +137,15 @@ function quoteStation(order) {
 
 if (require.main === module) {
   try {
-    const input = process.argv[2];
-    if (!input || process.argv.length !== 3) throw new StationInputError('用法：node scripts/station-quote.cjs 订单.json；用 - 从标准输入读取。');
+    const layoutOnly = process.argv[2] === '--layout';
+    const offset = layoutOnly ? 3 : 2;
+    const input = process.argv[offset];
+    if (!input || process.argv.length !== offset + 1) throw new StationInputError('用法：node scripts/station-quote.cjs [--layout] 订单.json；用 - 从标准输入读取。');
     let order;
     try { order = JSON.parse(fs.readFileSync(input === '-' ? 0 : input, 'utf8').replace(/^\uFEFF/, '')); }
     catch { throw new StationInputError('请提供有效的 JSON 文件或标准输入。'); }
-    console.log(JSON.stringify(quoteStation(order), null, 2));
+    if (!order || typeof order !== 'object' || Array.isArray(order)) throw new StationInputError('请提供 JSON 对象。');
+    console.log(JSON.stringify(layoutOnly ? estimate(order) : quoteStation(order), null, 2));
   } catch (error) {
     console.error(error.message);
     process.exitCode = 2;

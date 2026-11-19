@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { quoteStation } = require('./station-quote.cjs');
+const { estimate } = require('./station-layout.cjs');
 const { createServer } = require('./web-server.cjs');
 
 // Fictional fixture for testing unit conversion and fees.
@@ -36,6 +37,36 @@ test('sheet modes agree with weight mode and missing pricing inputs are rejected
   assert.throws(() => quoteStation({ ...demo, shiftCost: undefined }), /每班生产费用/);
   assert.throws(() => quoteStation({ ...demo, ...sheet, yieldBasis: 'projection', pieceAreaCm2: 300 }), /超过本模投料/);
   assert.throws(() => quoteStation({ ...demo, boxPrice: undefined }), /同时填写/);
+});
+
+test('product layout adds 40 mm only to sheet width and prices the estimated sheet', () => {
+  const layout = {
+    productLengthMm: 140, productWidthMm: 90, gapMm: 15, edgeMm: 20,
+    layoutMethod: 'manual', layoutAlongLength: 3, layoutAlongWidth: 2,
+  };
+  const expected = {
+    moldLengthMm: 490, moldWidthMm: 235, sheetLengthMm: 490, sheetWidthMm: 275,
+    alongLength: 3, alongWidth: 2, cavities: 6, rotated: false,
+  };
+  assert.deepEqual(estimate(layout), expected);
+  const order = { ...demo, ...sheet, yieldBasis: 'provided' };
+  const calculated = quoteStation({ ...order, ...layout, sheetSource: 'layout' });
+  const direct = quoteStation({ ...order, cavities: 6, sheetLengthMm: 490, sheetWidthMm: 275 });
+  assert.equal(calculated.inputKg, direct.inputKg);
+  assert.equal(calculated.taxedTotal, direct.taxedTotal);
+  assert.throws(() => estimate({ ...layout, edgeMm: undefined }), /模具每边留量/);
+});
+
+test('automatic layout checks device limits and only rotates when requested', () => {
+  const fits = { productLengthMm: 140, productWidthMm: 90, gapMm: 15, edgeMm: 20,
+    layoutMethod: 'auto', maxMoldLengthMm: 500, maxMoldWidthMm: 184 };
+  assert.equal(estimate(fits).cavities, 3);
+  const rotated = estimate({ ...fits, layoutOrientation: 'compare' });
+  assert.equal(rotated.cavities, 4);
+  assert.equal(rotated.rotated, true);
+  assert.equal(rotated.sheetWidthMm, 220);
+  assert.throws(() => estimate({ ...fits, maxMoldLengthMm: 40 }), /超出模具上限/);
+  assert.throws(() => estimate({ ...fits, maxMoldWidthMm: undefined }), /模具最大宽/);
 });
 
 test('the local web route uses the same calculator with the existing session guard', async t => {

@@ -29,7 +29,12 @@
         <section class="form-card">
           <div class="section-heading"><h2>用料与产能</h2></div>
           <div class="form-body station-grid" id="station-production">
-            <label class="field station-wide">投料依据<select name="mode"><option value="weight">克重与成品率</option><option value="sheet">实际拉片</option></select></label>
+            <label class="field station-wide">投料依据<select name="mode"><option value="weight">克重与成品率</option><option value="sheet">按拉片尺寸核算</option></select></label>
+            <label class="field station-wide" data-group="sheet" hidden>拉片尺寸来源<select name="sheetSource"><option value="actual">直接填实际拉片长宽</option><option value="layout">由单件尺寸排模反推</option></select></label>
+            <div class="station-grid station-wide" id="station-layout" data-group="layout" hidden>
+              <label class="field">排法<select name="layoutMethod"><option value="auto">按设备上限自动排</option><option value="manual">指定长向和宽向件数</option></select></label>
+              <label class="field">产品方向<select name="layoutOrientation"><option value="fixed">按填写方向</option><option value="compare">同时比较整体旋转 90°</option></select></label>
+            </div>
             <label class="field station-wide" data-group="sheet" hidden>成品率依据<select name="yieldBasis">
               <option value="measured">实测单件克重</option><option value="projection">产品裁切投影面积</option><option value="provided">直接填写成品率</option>
             </select></label>
@@ -54,6 +59,7 @@
           </div>
           <div class="total-row"><span>含税总额</span><strong id="station-total">¥ —</strong></div>
           <p id="station-message">填写资料后计算。</p>
+          <p id="station-layout-result" hidden></p>
         </div>
       </aside>
     </div>

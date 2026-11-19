@@ -5,6 +5,7 @@ const message = document.getElementById('station-message');
 const untaxed = document.getElementById('station-untaxed');
 const taxed = document.getElementById('station-taxed');
 const total = document.getElementById('station-total');
+const layoutResult = document.getElementById('station-layout-result');
 let revision = 0;
 
 function addFields(id, specs) {
@@ -23,12 +24,19 @@ function addFields(id, specs) {
   }
 }
 addFields('station-production', [
-  ['quantity', '数量（件）'], ['cavities', '每模件数'],
-  ['sheetLengthMm', '拉片长（mm）', 'sheet'], ['sheetWidthMm', '拉片宽（mm）', 'sheet'],
+  ['quantity', '数量（件）'], ['cavities', '每模件数', 'cavities'],
+  ['sheetLengthMm', '拉片长（mm）', 'actual'], ['sheetWidthMm', '拉片宽（mm）', 'actual'],
   ['thicknessMm', '原片厚度（mm）', 'sheet'], ['density', '原片比重（g/cm³）', 'sheet'],
   ['pieceWeight', '成品单件克重（g）', 'weight'], ['yieldPercent', '成品率（%）', 'yield'],
   ['pieceAreaCm2', '单件裁切投影面积（cm²）', 'projection'],
   ['cycleSeconds', '秒/模'], ['shiftHours', '每班有效工时（小时）'],
+]);
+addFields('station-layout', [
+  ['productLengthMm', '单件外部长（mm）'], ['productWidthMm', '单件外部宽（mm）'],
+  ['gapMm', '产品间净距（mm）'], ['edgeMm', '模具每边留量（mm）'],
+  ['layoutAlongLength', '模具长向件数', 'layoutManual'], ['layoutAlongWidth', '模具宽向件数', 'layoutManual'],
+  ['maxMoldLengthMm', '设备允许的模具最大长（mm）', null, '自动排模必填'],
+  ['maxMoldWidthMm', '设备允许的模具最大宽（mm）', null, '自动排模必填'],
 ]);
 addFields('station-costs', [
   ['materialPrice', '原料价（元/kg）'], ['scrapPrice', '废料回收价（元/kg）', null, '无收入填 0'],
@@ -46,15 +54,19 @@ function clear(text) {
   taxed.textContent = '—';
   total.textContent = '¥ —';
   message.textContent = text;
+  layoutResult.hidden = true;
 }
 
 function updateFields() {
   const sheet = form.elements.mode.value === 'sheet';
+  const layout = sheet && form.elements.sheetSource.value === 'layout';
   const basis = form.elements.yieldBasis.value;
-  const visible = { sheet, weight: !sheet || basis === 'measured', yield: !sheet || basis === 'provided', projection: sheet && basis === 'projection' };
-  for (const label of form.querySelectorAll('[data-group]')) {
-    label.hidden = !visible[label.dataset.group];
-    label.querySelector('input,select').disabled = label.hidden;
+  const visible = { sheet, layout, actual: sheet && !layout, cavities: !layout,
+    layoutManual: layout && form.elements.layoutMethod.value === 'manual',
+    weight: !sheet || basis === 'measured', yield: !sheet || basis === 'provided', projection: sheet && basis === 'projection' };
+  for (const group of form.querySelectorAll('[data-group]')) group.hidden = !visible[group.dataset.group];
+  for (const field of form.querySelectorAll('input, select')) {
+    field.disabled = !!field.closest('[hidden]');
   }
 }
 
@@ -80,6 +92,11 @@ form.addEventListener('submit', async event => {
     total.textContent = '¥ ' + quote.taxedTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     message.textContent = `预计投料 ${quote.inputKg.toFixed(2)} kg，成品率 ${quote.yieldPercent.toFixed(2)}%。` +
       (quote.loadingIncluded ? '' : '未计装运费。');
+    if (quote.layout) {
+      const value = quote.layout;
+      layoutResult.textContent = `${value.alongLength} × ${value.alongWidth} 排，${value.cavities} 穴${value.rotated ? '，旋转 90°' : ''}。模具 ${value.moldLengthMm} × ${value.moldWidthMm} mm，拉片 ${value.sheetLengthMm} × ${value.sheetWidthMm} mm。`;
+      layoutResult.hidden = false;
+    }
   } catch (error) {
     if (current === revision) clear(error.message);
   }
