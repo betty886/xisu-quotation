@@ -5,10 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {quoteWithFlockWeight} = require('./quote.cjs');
+const {quoteStation, StationInputError} = require('./station-quote.cjs');
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'web');
 const parameterFile = path.join(root, 'assets', 'parameters.reference.json');
 const staticFiles = new Map([
+  ['/station', ['station.html', 'text/html; charset=utf-8']],
+  ['/station.js', ['station.js', 'text/javascript; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
@@ -162,14 +165,16 @@ function createServer({configPath=parameterFile, password=process.env.QUOTE_PASS
         throw new RequestError('请先输入内部口令。',undefined,401);
       }
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
-      if(req.method==='POST'&&pathname==='/api/quote'){
+      if(req.method==='POST'&&(pathname==='/api/quote'||pathname==='/api/station-quote')){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
-        const body=await readJson(req);return sendJson(res,200,await calculate(body,loadConfig(configPath)));
+        const body=await readJson(req);
+        if(pathname==='/api/station-quote')return sendJson(res,200,quoteStation(body));
+        return sendJson(res,200,await calculate(body,loadConfig(configPath)));
       }
       if(req.method!=='GET' && req.method!=='HEAD')throw new RequestError('请求方式不受支持。',undefined,405);
       const entry=staticFiles.get(pathname);if(!entry)throw new RequestError('页面不存在。',undefined,404);
       return sendFile(res,req,entry);
-    } catch(e) {if(res.headersSent||res.destroyed)return;const known=e instanceof RequestError;sendJson(res,known?e.status:500,{error:{message:known?e.message:'报价服务暂不可用，请核对参数文件。',...(known&&e.field?{field:e.field}:{})}});}
+    } catch(e) {if(res.headersSent||res.destroyed)return;const known=e instanceof RequestError||e instanceof StationInputError;sendJson(res,known?(e.status||422):500,{error:{message:known?e.message:'报价服务暂不可用，请核对参数文件。',...(known&&e.field?{field:e.field}:{})}});}
   });return server;
 }
 function openBrowser(url) {

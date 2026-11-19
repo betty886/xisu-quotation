@@ -16,6 +16,10 @@
 
 ## 使用
 
+### 工位机报价
+
+登录本机报价台后，点击顶部「工位机报价」，按实际拉片或单件克重与成品率填写。也可以在聊天中说「用吸塑报价 Skill 算工位机」，或在 Skill 目录运行 `node scripts/station-quote.cjs 订单.json`。材料、产能和费用由使用者填写，网页和命令行使用同一计算程序。 [工位机字段与单位](skills/xisu-quotation/references/station-quotation.md)
+
 ### 打开报价界面
 
 先安装 Node.js 18 或更新版本。报价台只供内部使用，启动前要设置环境变量 `QUOTE_PASSWORD`。这个口令从环境变量或部署密钥读取，不要写进代码、不要提交到仓库。可参考仓库根目录的 `.env.example`。

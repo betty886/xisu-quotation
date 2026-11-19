@@ -1,0 +1,60 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const { quoteStation } = require('./station-quote.cjs');
+const { createServer } = require('./web-server.cjs');
+
+// Fictional fixture for testing unit conversion and fees.
+const demo = {
+  quantity: 1200, cavities: 4, pieceWeight: 8, yieldPercent: 80,
+  cycleSeconds: 12, shiftHours: 3, shiftCost: 300, materialPrice: 6, scrapPrice: 2,
+  boxCapacity: 100, boxPrice: 2, loadingCost: 8, moldCost: 25, otherCost: 3,
+  taxPercent: 5, targetProfit: 20,
+};
+const sheet = { mode: 'sheet', sheetLengthMm: 400, sheetWidthMm: 250, thicknessMm: 0.4, density: 1 };
+
+test('the download-only CLI prices a fictional order using its own inputs', () => {
+  const text = execFileSync(process.execPath, [path.join(__dirname, 'station-quote.cjs'), '-'],
+    { input: JSON.stringify(demo), encoding: 'utf8' });
+  const quote = JSON.parse(text);
+  assert.equal(quote.untaxedUnitPrice, 0.2060);
+  assert.equal(quote.taxedUnitPrice, 0.2163);
+  assert.equal(quote.taxedTotal, 259.56);
+  assert.equal(quote.inputKg, 12);
+  assert.equal(quote.loadingIncluded, true);
+});
+
+test('sheet modes agree with weight mode and missing pricing inputs are rejected', () => {
+  const expected = quoteStation(demo).taxedUnitPrice;
+  assert.equal(quoteStation({ ...demo, ...sheet, yieldBasis: 'measured' }).taxedUnitPrice, expected);
+  assert.equal(quoteStation({ ...demo, ...sheet, yieldBasis: 'projection', pieceAreaCm2: 200 }).taxedUnitPrice, expected);
+  assert.equal(quoteStation({ ...demo, ...sheet, yieldBasis: 'provided' }).taxedUnitPrice, expected);
+  assert.equal(quoteStation({ ...demo, loadingCost: '' }).loadingIncluded, false);
+  assert.throws(() => quoteStation({ ...demo, shiftCost: undefined }), /每班生产费用/);
+  assert.throws(() => quoteStation({ ...demo, ...sheet, yieldBasis: 'projection', pieceAreaCm2: 300 }), /超过本模投料/);
+  assert.throws(() => quoteStation({ ...demo, boxPrice: undefined }), /同时填写/);
+});
+
+test('the local web route uses the same calculator with the existing session guard', async t => {
+  const password = 'synthetic-test-only';
+  const server = createServer({ password });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const url = 'http://127.0.0.1:' + server.address().port;
+  const post = (route, payload, cookie) => fetch(url + route, {
+    method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify(payload),
+  });
+  assert.equal((await post('/api/station-quote', demo)).status, 401);
+  const login = await post('/api/login', { password });
+  assert.equal(login.status, 200);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  assert.match(await (await fetch(url + '/station', { headers: { cookie } })).text(), /id="station-form"/);
+  const quote = await post('/api/station-quote', demo, cookie);
+  assert.equal(quote.status, 200);
+  assert.deepEqual(await quote.json(), quoteStation(demo));
+  assert.equal((await post('/api/station-quote', { ...demo, materialPrice: '' }, cookie)).status, 422);
+});

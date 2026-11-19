@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工位机报价</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/station.js" defer></script>
+  <style>
+    .station-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .station-grid .field{min-width:0}
+    .station-wide{grid-column:1/-1}
+    .station-grid [hidden]{display:none!important}
+    .station-grid details .station-grid{padding-top:12px}
+    .station-grid input,.station-grid select{width:100%;min-width:0}
+    .station-costs{margin-top:16px}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">吸塑报价 <span class="brand-divider">/</span> 工位机</div>
+    <a class="text-button" href="/">普通吸塑报价</a>
+  </header>
+  <main>
+    <div class="page-intro"><div><h1>工位机报价</h1><p class="field-hint">普通未植绒片材。材价、成品率和工时按本单实际填写。</p></div></div>
+    <div class="quote-layout">
+      <form id="station-form" novalidate>
+        <section class="form-card">
+          <div class="section-heading"><h2>用料与产能</h2></div>
+          <div class="form-body station-grid" id="station-production">
+            <label class="field station-wide">投料依据<select name="mode"><option value="weight">克重与成品率</option><option value="sheet">实际拉片</option></select></label>
+            <label class="field station-wide" data-group="sheet" hidden>成品率依据<select name="yieldBasis">
+              <option value="measured">实测单件克重</option><option value="projection">产品裁切投影面积</option><option value="provided">直接填写成品率</option>
+            </select></label>
+          </div>
+        </section>
+        <section class="form-card station-costs">
+          <div class="section-heading"><h2>费用与税点</h2></div>
+          <div class="form-body station-grid">
+            <div class="station-grid station-wide" id="station-costs"></div>
+            <label class="field station-wide">班费计法<select name="shiftBilling"><option value="prorated">按工时分摊</option><option value="whole">按整班计</option></select></label>
+            <details class="station-wide"><summary>包装、模具和整单加价（选填）</summary><div class="station-grid" id="station-extra"></div></details>
+            <button class="primary-button station-wide" type="submit">计算报价</button>
+          </div>
+        </section>
+      </form>
+      <aside class="result-card" aria-label="工位机报价结果" aria-live="polite">
+        <div class="result-main">
+          <div class="result-heading"><span class="result-title">整单报价</span></div>
+          <div class="dual-prices">
+            <div class="price-option"><span class="price-label">未税单价</span><div class="price-line"><span class="currency">¥</span><strong id="station-untaxed">—</strong><span class="per-unit">/ 件</span></div></div>
+            <div class="price-option tax-included"><span class="price-label">含税单价</span><div class="price-line"><span class="currency">¥</span><strong id="station-taxed">—</strong><span class="per-unit">/ 件</span></div></div>
+          </div>
+          <div class="total-row"><span>含税总额</span><strong id="station-total">¥ —</strong></div>
+          <p id="station-message">填写资料后计算。</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
