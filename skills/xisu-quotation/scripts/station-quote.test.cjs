@@ -69,6 +69,17 @@ test('automatic layout checks device limits and only rotates when requested', ()
   assert.throws(() => estimate({ ...fits, maxMoldWidthMm: undefined }), /模具最大宽/);
 });
 
+test('users can enter a shorter preferred length without changing the hard limits', () => {
+  const params = { productLengthMm: 100, productWidthMm: 60, gapMm: 10, edgeMm: 15,
+    layoutMethod: 'auto', maxMoldLengthMm: 540, maxMoldWidthMm: 250 };
+  const regular = estimate({ ...params, preferredMoldLengthMm: 400 });
+  assert.equal(regular.moldLengthMm, 350);
+  assert.equal(regular.cavities, 9);
+  assert.equal(estimate(params).moldLengthMm, 460);
+  assert.equal(estimate({ ...params, preferredMoldLengthMm: 700 }).moldLengthMm, 460);
+  assert.throws(() => estimate({ ...params, preferredMoldLengthMm: 120 }), /常规模具上限/);
+});
+
 test('the local web route uses the same calculator with the existing session guard', async t => {
   const password = 'synthetic-test-only';
   const server = createServer({ password });

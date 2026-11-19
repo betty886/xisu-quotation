@@ -31,6 +31,9 @@
     if ((maxLength === null) !== (maxWidth === null)) {
       throw new Error('设备允许的模具最大长、宽请一起填写。');
     }
+    const preferredLength = method === 'auto'
+      ? read('preferredMoldLengthMm', '常规模具长度上限', { optional: true }) : null;
+    const lengthLimit = preferredLength === null ? maxLength : Math.min(maxLength, preferredLength);
     const alongLength = method === 'manual' ? read('layoutAlongLength', '模具长向件数', { integer: true }) : null;
     const alongWidth = method === 'manual' ? read('layoutAlongWidth', '模具宽向件数', { integer: true }) : null;
 
@@ -43,12 +46,12 @@
     const candidates = [];
     for (const rotated of orientation === 'compare' ? [false, true] : [false]) {
       const [length, width] = rotated ? [partWidth, partLength] : [partLength, partWidth];
-      const columns = alongLength ?? capacity(maxLength, length);
+      const columns = alongLength ?? capacity(lengthLimit, length);
       const rows = alongWidth ?? capacity(maxWidth, width);
       if (columns < 1 || rows < 1 || !Number.isSafeInteger(columns * rows)) continue;
       const moldLengthMm = extent(columns, length);
       const moldWidthMm = extent(rows, width);
-      if (maxLength !== null && (moldLengthMm > maxLength + tolerance(maxLength) ||
+      if (maxLength !== null && (moldLengthMm > lengthLimit + tolerance(lengthLimit) ||
           moldWidthMm > maxWidth + tolerance(maxWidth))) continue;
       candidates.push({
         moldLengthMm, moldWidthMm, sheetLengthMm: moldLengthMm, sheetWidthMm: moldWidthMm + 40,
@@ -56,8 +59,13 @@
       });
     }
     candidates.sort((a, b) => b.cavities - a.cavities ||
-      a.sheetLengthMm * a.sheetWidthMm - b.sheetLengthMm * b.sheetWidthMm);
-    if (!candidates.length) throw new Error('当前产品或排法超出模具上限，请核对尺寸、留量和设备。');
+      a.moldLengthMm * a.moldWidthMm - b.moldLengthMm * b.moldWidthMm ||
+      a.moldLengthMm - b.moldLengthMm);
+    if (!candidates.length) {
+      throw new Error(preferredLength !== null && lengthLimit < maxLength
+        ? '当前产品在常规模具上限内排不下，请核对长宽和留量；需要加长时可使用设备允许的大版范围。'
+        : '当前产品或排法超出模具上限，请核对尺寸、留量和设备。');
+    }
     return candidates[0];
   }
 

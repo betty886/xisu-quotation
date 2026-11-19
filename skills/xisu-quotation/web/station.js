@@ -37,6 +37,7 @@ addFields('station-layout', [
   ['layoutAlongLength', '模具长向件数', 'layoutManual'], ['layoutAlongWidth', '模具宽向件数', 'layoutManual'],
   ['maxMoldLengthMm', '设备允许的模具最大长（mm）', null, '自动排模必填'],
   ['maxMoldWidthMm', '设备允许的模具最大宽（mm）', null, '自动排模必填'],
+  ['preferredMoldLengthMm', '常规模具长度上限（mm）', 'layoutAuto', '选填，留空使用设备长上限'],
 ]);
 addFields('station-costs', [
   ['materialPrice', '原料价（元/kg）'], ['scrapPrice', '废料回收价（元/kg）', null, '无收入填 0'],
@@ -63,6 +64,7 @@ function updateFields() {
   const basis = form.elements.yieldBasis.value;
   const visible = { sheet, layout, actual: sheet && !layout, cavities: !layout,
     layoutManual: layout && form.elements.layoutMethod.value === 'manual',
+    layoutAuto: layout && form.elements.layoutMethod.value === 'auto',
     weight: !sheet || basis === 'measured', yield: !sheet || basis === 'provided', projection: sheet && basis === 'projection' };
   for (const group of form.querySelectorAll('[data-group]')) group.hidden = !visible[group.dataset.group];
   for (const field of form.querySelectorAll('input, select')) {

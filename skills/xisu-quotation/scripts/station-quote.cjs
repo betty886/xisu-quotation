@@ -9,7 +9,7 @@ const fields = new Set([
   'boxCapacity', 'boxPrice', 'loadingCost', 'moldCost', 'otherCost', 'taxPercent', 'targetProfit',
   'sheetSource', 'productLengthMm', 'productWidthMm', 'gapMm', 'edgeMm',
   'layoutMethod', 'layoutOrientation', 'layoutAlongLength', 'layoutAlongWidth',
-  'maxMoldLengthMm', 'maxMoldWidthMm',
+  'maxMoldLengthMm', 'maxMoldWidthMm', 'preferredMoldLengthMm',
 ]);
 
 class StationInputError extends Error {}
