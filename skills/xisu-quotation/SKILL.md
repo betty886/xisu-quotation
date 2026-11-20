@@ -16,7 +16,7 @@ description: 用于吸塑制品报价、核价、排版与成本复核，以及�
 
 ## 打开报价界面
 
-Windows 可运行技能目录中的 `启动报价台.cmd`；其他系统可在技能目录执行 `node scripts/web-server.cjs --open`，需要 Node.js 18 或更新版本。服务仅监听本机，关闭终端即停止。使用自有参数时，在界面命令后追加 `--config 参数文件.json`，聊天算价也使用该配置文件。界面与聊天使用同一个算价程序。
+完整解压后，Windows 双击技能目录中的 `启动报价台.cmd`。其他系统可在技能目录执行 `node scripts/web-server.cjs --open --temporary-password`。需要 Node.js 18 或更新版本。用启动窗口显示的本次口令登录，已有环境变量 `QUOTE_PASSWORD` 时使用原口令。服务仅监听本机，使用时保留启动窗口。使用自有参数时，在命令后追加 `--config 参数文件.json`，聊天算价也使用该配置文件。
 
 ## 内置公开参考数值
 

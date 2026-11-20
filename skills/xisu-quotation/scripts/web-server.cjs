@@ -198,13 +198,27 @@ function openBrowser(url) {
 }
 if(require.main===module){
  try {
-  if(typeof process.env.QUOTE_PASSWORD!=='string'||process.env.QUOTE_PASSWORD.length===0)throw Error('请设置环境变量 QUOTE_PASSWORD 后再启动内部报价台。口令放在部署密钥或本机环境变量里，不要写进代码。例如：QUOTE_PASSWORD=你的口令 node scripts/web-server.cjs');
   const raw=process.env.QUOTE_PORT||'18771';if(!/^\d+$/.test(raw)||Number(raw)<1||Number(raw)>65535)throw Error('QUOTE_PORT 须为 1 至 65535 的端口。');
-  const args=process.argv.slice(2);let configPath=parameterFile,shouldOpen=false;
-  for(let i=0;i<args.length;i++){if(args[i]==='--open'){shouldOpen=true;continue;}if(args[i]==='--config'&&i+1<args.length){configPath=path.resolve(args[++i]);continue;}throw Error('用法：node scripts/web-server.cjs [--open] [--config 参数文件.json]');}
+  const args=process.argv.slice(2);let configPath=parameterFile,shouldOpen=false,useTemporaryPassword=false;
+  for(let i=0;i<args.length;i++){
+   if(args[i]==='--open'){shouldOpen=true;continue;}
+   if(args[i]==='--temporary-password'){useTemporaryPassword=true;continue;}
+   if(args[i]==='--config'&&i+1<args.length){configPath=path.resolve(args[++i]);continue;}
+   throw Error('用法：node scripts/web-server.cjs [--open] [--temporary-password] [--config 参数文件.json]');
+  }
+  const configuredPassword=process.env.QUOTE_PASSWORD;
+  const temporaryPassword=!configuredPassword&&useTemporaryPassword?crypto.randomBytes(12).toString('base64url'):null;
+  const password=configuredPassword||temporaryPassword;
+  if(!password)throw Error('请设置 QUOTE_PASSWORD，或用 --temporary-password 为本次本机使用生成口令。');
   variants(loadConfig(configPath));
-  const server=createServer({configPath});server.on('error',e=>{console.error(e.code==='EADDRINUSE'?'端口已被使用；请设置 QUOTE_PORT 后重试。':'报价服务启动失败：'+e.message);process.exitCode=1});
-  server.listen(Number(raw),'127.0.0.1',()=>{const url=`http://127.0.0.1:${server.address().port}/`;console.log('报价页面已启动：'+url);if(shouldOpen)openBrowser(url);});
+  const server=createServer({configPath,password});server.on('error',e=>{console.error(e.code==='EADDRINUSE'?'端口已被使用；请设置 QUOTE_PORT 后重试。':'报价服务启动失败：'+e.message);process.exitCode=1});
+  server.listen(Number(raw),'127.0.0.1',()=>{
+   const url=`http://127.0.0.1:${server.address().port}/`;
+   console.log('报价页面已启动：'+url);
+   if(temporaryPassword)console.log('本次登录口令：'+temporaryPassword);
+   console.log('使用报价台时请保留此窗口。');
+   if(shouldOpen)openBrowser(url);
+  });
  }catch(e){console.error('报价服务启动失败：'+e.message);process.exitCode=1;}
 }
 module.exports={createServer,calculate,variants};

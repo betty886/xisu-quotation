@@ -1,6 +1,13 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
+  if (location.protocol === 'file:') {
+    document.querySelector('.header-actions').hidden = true;
+    document.querySelector('.page-intro').hidden = true;
+    document.querySelector('.quote-layout').hidden = true;
+    $('local-file-help').hidden = false;
+    return;
+  }
   const form = $('quote-form');
   const variants = new Map();
   const state = {ready: false, sequence: 0, timer: null, controller: null, quote: null, payload: null, unit: 'cm', previousMaterial: ''};
