@@ -1,0 +1,31 @@
+{
+  "document": "customer",
+  "order_no": "DEMO-E2E-001",
+  "version_rule": "订单编号由使用人必填。尺寸、穴数、片材尺寸、材料、颜色、数量、厚度或克重、模具变更时版本加一。旧计算和旧导出标为过期；排模仍完整时重算，并保留来源版本。",
+  "customer_name": "示例客户",
+  "product_name": "示例吸塑产品",
+  "quote_status": "pending_review",
+  "formal_quote": null,
+  "sheets": {
+    "pricing_sheets": 166.66666666666666,
+    "production_sheets": 167,
+    "small_order_sheets": 166.66666666666666,
+    "defect_rate": 0,
+    "waste_note": "未计损耗",
+    "cavities": 6,
+    "sheet_length_cm": 90,
+    "sheet_width_cm": 60
+  },
+  "shipments": [
+    {
+      "quantity": 400,
+      "date": "2026-03-03"
+    },
+    {
+      "quantity": 600,
+      "date": "2026-03-18"
+    }
+  ],
+  "remainder_after_two_batches": 0,
+  "notice": "虚构样例。报价确认不等于出货。读图只做待确认，不调用视觉服务。整张数展示排产整张数，不另设损耗。"
+}

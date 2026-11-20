@@ -145,6 +145,17 @@ const defaultRules={processingTiers:[]};
     const tier=processingTierForCavities(cavities,tiers);
     return tier ? tier.fee/defaultRules.processingTiers[0].fee : null;
   }
+  function confirmedLayoutFrom(input, settings, errors) {
+    const keys=['confirmedSheetLengthCm','confirmedSheetWidthCm','confirmedCavities'];
+    const present=keys.filter(key=>!blank(input[key]));
+    if (!present.length) return null;
+    if (present.length!==3) {errors.push('已确认排模须同时给出片材长度、片材宽度和穴数。');return null;}
+    const sheetLengthCm=number(input,'confirmedSheetLengthCm','已确认片材长度（cm）',errors,{positive:true});
+    const sheetWidthCm=number(input,'confirmedSheetWidthCm','已确认片材宽度（cm）',errors,{positive:true});
+    const cavities=number(input,'confirmedCavities','已确认穴数',errors,{positive:true,integer:true});
+    if (sheetLengthCm==null || sheetWidthCm==null || cavities==null) return null;
+    return {direction:'confirmed',orientation:'已确认排模',columns:null,rows:null,cavities,sheetLengthCm,sheetWidthCm,occupiedLengthCm:null,occupiedWidthCm:null,areaCm2:sheetLengthCm*sheetWidthCm,edgeCm:settings.edgeCm,gapCm:settings.gapCm,rotationEvaluated:false};
+  }
   function calculateTray(input={},rules=defaultRules) {
     const r=fresh();r.unit='件';
     if (!input || typeof input !== 'object' || Array.isArray(input)) {r.errors.push('报价输入格式无效。');return r;}
@@ -217,15 +228,17 @@ const defaultRules={processingTiers:[]};
     const ratePerM3=volumeMode?(legacyRate??configuredRate):null;
     const manualFreight=mode==='手填'?number(input,'freightTotal','手填整单运费',e,{min:0}):null;
     if (e.length) return finiteResult(r);
-    const alternatives=[candidate(geometry.layoutLengthCm,geometry.layoutWidthCm,r.layoutAllowanceCm,settings,false),...(areaPriced?[]:[candidate(geometry.layoutLengthCm,geometry.layoutWidthCm,r.layoutAllowanceCm,settings,true)])];
+    const confirmedLayout=confirmedLayoutFrom(input,settings,e);
+    if (e.length) return finiteResult(r);
+    const alternatives=confirmedLayout?[confirmedLayout]:[candidate(geometry.layoutLengthCm,geometry.layoutWidthCm,r.layoutAllowanceCm,settings,false),...(areaPriced?[]:[candidate(geometry.layoutLengthCm,geometry.layoutWidthCm,r.layoutAllowanceCm,settings,true)])];
     r.alternatives=alternatives;
-    r.layout=alternatives.slice().sort((a,b)=>b.cavities-a.cavities || a.areaCm2-b.areaCm2)[0];
+    r.layout=confirmedLayout||alternatives.slice().sort((a,b)=>b.cavities-a.cavities || a.areaCm2-b.areaCm2)[0];
     const layout=r.layout;
-    if (layout.cavities<1 || !Number.isSafeInteger(layout.cavities) || layout.sheetLengthCm>settings.maxLengthCm+1e-9 || layout.sheetWidthCm>settings.maxWidthCm+1e-9) {e.push('产品无法在片材尺寸内有效排版，请核对尺寸。');return finiteResult(r);}
+    if (layout.cavities<1 || !Number.isSafeInteger(layout.cavities) || layout.sheetLengthCm>settings.maxLengthCm+1e-9 || layout.sheetWidthCm>settings.maxWidthCm+1e-9) {e.push(confirmedLayout?'已确认片材或穴数超出可用上限，请核对实际排模，不能改成另一套排版。':'产品无法在片材尺寸内有效排版，请核对尺寸。');return finiteResult(r);}
     const adoptedCavities=layout.cavities;
     r.theoreticalCavities=layout.cavities;
     r.adoptedCavities=layout.cavities;
-    r.cavitySource='layout';
+    r.cavitySource=confirmedLayout?'confirmed':'layout';
     const processingTier=areaPriced?{label:'植布固定加工费',baseFee:clothProcessing,increment:0,referenceFee:clothProcessing,effectiveFee:clothProcessing}:processingFeeForMaterial(adoptedCavities,material,rules.processingTiers||defaultRules.processingTiers);
     if (!processingTier) {e.push('当前排版数量没有唯一加工费档位（仅支持1–100个），请检查加工费参数。');return finiteResult(r);}
     r.thicknessSource=areaPriced?'area':thickness===null?'equivalent':'measured';
@@ -243,7 +256,7 @@ const defaultRules={processingTiers:[]};
     r.baseUnit=(r.sheetMaterialCost+r.sheetProcessingCost)/adoptedCavities;
     r.theoreticalSheets=quantity/adoptedCavities/(1-reject/100);
     r.productionSheets=Math.ceil(r.theoreticalSheets);
-    r.warnings.push(moldType==='female'?`阴模排版按产品外形长宽各增加总出血位 ${bleed.toFixed(3)} cm，不叠加产品高度。`:`阳模排版按产品外形长宽各增加产品高度 ${height.toFixed(3)} cm。`);
+    r.warnings.push(r.cavitySource==='confirmed'?'使用已确认的片材尺寸和穴数，不重新比较方向，也不改穴数。':(moldType==='female'?`阴模排版按产品外形长宽各增加总出血位 ${bleed.toFixed(3)} cm，不叠加产品高度。`:`阳模排版按产品外形长宽各增加产品高度 ${height.toFixed(3)} cm。`));
     r.warnings.push('材料和成型加工保持原公式的连续张数计价；整张生产数仅供排产参考。边料已计入片材面积，不重复加损耗。');
     r.smallOrderCount=quantity/adoptedCavities;
     const matches=quantityRows.filter(q=>(q.min===1?0:q.min)<=r.smallOrderCount && r.smallOrderCount<q.max+1);
