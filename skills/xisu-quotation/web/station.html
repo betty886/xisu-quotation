@@ -15,14 +15,22 @@
     .station-grid details .station-grid{padding-top:12px}
     .station-grid input,.station-grid select{width:100%;min-width:0}
     .station-costs{margin-top:16px}
+    .station-layout-result{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);line-height:1.6}
+    .station-details{padding:0 20px 16px}
+    .station-details summary{padding:12px 0}
+    .station-details .summary-row strong{white-space:nowrap}
   </style>
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">吸塑报价 <span class="brand-divider">/</span> 工位机</div>
-    <a class="text-button" href="/">普通吸塑报价</a>
+    <div class="brand">吸塑报价 <span class="brand-divider">/</span> 工作台</div>
+    <button type="button" id="station-logout" class="text-button">退出</button>
   </header>
   <main>
+    <nav class="workbench-nav" aria-label="报价工作台">
+      <a href="/">普通吸塑报价</a>
+      <a href="/station" aria-current="page">工位机报价</a>
+    </nav>
     <div class="page-intro"><div><h1>工位机报价</h1><p class="field-hint">普通未植绒片材。材价、成品率和工时按本单实际填写。</p></div></div>
     <div class="quote-layout">
       <form id="station-form" novalidate>
@@ -34,7 +42,11 @@
             <div class="station-grid station-wide" id="station-layout" data-group="layout" hidden>
               <label class="field">排法<select name="layoutMethod"><option value="auto">按设备上限自动排</option><option value="manual">指定长向和宽向件数</option></select></label>
               <label class="field">产品方向<select name="layoutOrientation"><option value="fixed">按填写方向</option><option value="compare">同时比较整体旋转 90°</option></select></label>
+              <label class="field station-wide" data-group="layoutAuto">自动排模板型<select name="layoutSize"><option value="regular">常规版（模具长最多 600 mm）</option><option value="large">大版（按设备上限）</option><option value="custom">自定模具长度上限</option></select></label>
+              <label class="field">设备允许的模具最大长（mm）<input name="maxMoldLengthMm" type="number" min="1" max="860" step="any" value="860" required></label>
+              <label class="field">设备允许的模具最大宽（mm）<input name="maxMoldWidthMm" type="number" min="1" max="760" step="any" value="760" required></label>
             </div>
+            <button id="station-preview-layout" class="secondary-button station-wide" type="button" data-group="layout" hidden>仅计算排模与拉片</button>
             <label class="field station-wide" data-group="sheet" hidden>成品率依据<select name="yieldBasis">
               <option value="measured">实测单件克重</option><option value="projection">产品裁切投影面积</option><option value="provided">直接填写成品率</option>
             </select></label>
@@ -45,21 +57,34 @@
           <div class="form-body station-grid">
             <div class="station-grid station-wide" id="station-costs"></div>
             <label class="field station-wide">班费计法<select name="shiftBilling"><option value="prorated">按工时分摊</option><option value="whole">按整班计</option></select></label>
-            <details class="station-wide"><summary>包装、模具和整单加价（选填）</summary><div class="station-grid" id="station-extra"></div></details>
+            <details class="station-wide"><summary>纸箱、模具与目标加价（选填）</summary><div class="station-grid" id="station-extra"></div></details>
             <button class="primary-button station-wide" type="submit">计算报价</button>
           </div>
         </section>
       </form>
       <aside class="result-card" aria-label="工位机报价结果" aria-live="polite">
         <div class="result-main">
-          <div class="result-heading"><span class="result-title">整单报价</span></div>
+          <div class="result-heading"><span class="result-title" id="station-quote-heading">整单报价</span></div>
           <div class="dual-prices">
             <div class="price-option"><span class="price-label">未税单价</span><div class="price-line"><span class="currency">¥</span><strong id="station-untaxed">—</strong><span class="per-unit">/ 件</span></div></div>
             <div class="price-option tax-included"><span class="price-label">含税单价</span><div class="price-line"><span class="currency">¥</span><strong id="station-taxed">—</strong><span class="per-unit">/ 件</span></div></div>
           </div>
+          <div class="total-row"><span>未税总额</span><strong id="station-untaxed-total">¥ —</strong></div>
           <div class="total-row"><span>含税总额</span><strong id="station-total">¥ —</strong></div>
           <p id="station-message">填写资料后计算。</p>
-          <p id="station-layout-result" hidden></p>
+          <p id="station-layout-result" class="station-layout-result" hidden></p>
+        </div>
+        <details id="station-cost-details" class="station-details" hidden>
+          <summary>用料、产能与成本</summary>
+          <div id="station-cost-result"></div>
+        </details>
+        <div id="station-profit" class="station-details" hidden>
+          <strong>按客户售价测算</strong>
+          <div id="station-profit-result"></div>
+        </div>
+        <div class="station-details" id="station-copy-actions" hidden>
+          <button id="station-copy-quote" type="button" class="secondary-button">复制报价</button>
+          <span id="station-copy-status" role="status"></span>
         </div>
       </aside>
     </div>

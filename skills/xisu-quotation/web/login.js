@@ -18,7 +18,7 @@
         error.hidden = false;
         return;
       }
-      location.replace('./');
+      location.replace(location.pathname === '/station' ? '/station' : '/');
     } catch {
       error.textContent = '报价服务暂不可用，请稍后重试。';
       error.hidden = false;

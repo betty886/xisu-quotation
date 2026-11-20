@@ -6,7 +6,7 @@ const fields = new Set([
   'mode', 'yieldBasis', 'quantity', 'cavities', 'pieceWeight', 'yieldPercent',
   'sheetLengthMm', 'sheetWidthMm', 'thicknessMm', 'density', 'pieceAreaCm2',
   'cycleSeconds', 'shiftHours', 'shiftBilling', 'shiftCost', 'materialPrice', 'scrapPrice',
-  'boxCapacity', 'boxPrice', 'loadingCost', 'moldCost', 'otherCost', 'taxPercent', 'targetProfit',
+  'boxCapacity', 'boxPrice', 'loadingCost', 'moldCost', 'otherCost', 'taxPercent', 'targetProfit', 'sellingPrice',
   'sheetSource', 'productLengthMm', 'productWidthMm', 'gapMm', 'edgeMm',
   'layoutMethod', 'layoutOrientation', 'layoutAlongLength', 'layoutAlongWidth',
   'maxMoldLengthMm', 'maxMoldWidthMm', 'preferredMoldLengthMm',
@@ -100,8 +100,9 @@ function quoteStation(order) {
   const production = chargedShifts * read('shiftCost', '每班生产费用（无费用时填 0）');
   const inputKg = inputPerCycle * (quantity / cavities) / 1000;
   const scrapKg = Math.max(0, inputKg - quantity * pieceWeight / 1000);
-  const materialNet = inputKg * read('materialPrice', '原料单价') -
-    scrapKg * read('scrapPrice', '废料回收价（无收入时填 0）');
+  const materialPurchase = inputKg * read('materialPrice', '原料单价');
+  const scrapRevenue = scrapKg * read('scrapPrice', '废料回收价（无收入时填 0）');
+  const materialNet = materialPurchase - scrapRevenue;
 
   const boxCapacity = read('boxCapacity', '每箱件数', { ...count, optional: true });
   const boxPrice = read('boxPrice', '纸箱单价', optional);
@@ -114,6 +115,7 @@ function quoteStation(order) {
   const other = read('otherCost', '整单其他费用', optional) ?? 0;
   const targetProfit = read('targetProfit', '整单目标加价', optional) ?? 0;
   const taxFactor = 1 + read('taxPercent', '税点（未税填 0）', { max: 100 }) / 100;
+  const sellingPrice = read('sellingPrice', '客户含税单价', { ...positive, optional: true });
   const cost = materialNet + production + packaging + (loading ?? 0) + mold + other;
   const quoteBase = Math.max(0, cost + targetProfit) / quantity;
   const roundUp = amount => {
@@ -123,11 +125,17 @@ function quoteStation(order) {
   const untaxedUnitPrice = roundUp(quoteBase);
   const taxedUnitPrice = roundUp(quoteBase * taxFactor);
   const total = unit => Math.round(unit * quantity * 100 + 1e-8) / 100;
+  const untaxedRevenue = sellingPrice === null ? null : sellingPrice * quantity / taxFactor;
   const result = {
     currency: 'CNY', quantity, untaxedUnitPrice, taxedUnitPrice,
     untaxedTotal: total(untaxedUnitPrice), taxedTotal: total(taxedUnitPrice),
-    inputKg, yieldPercent: yieldRatio * 100, pieceWeight, piecesPerShift,
+    quoteBasis: targetProfit > 0 ? 'target' : 'break_even',
+    inputKg, scrapKg, yieldPercent: yieldRatio * 100, pieceWeight, piecesPerShift, chargedShifts,
     yieldBasis: basis, sheetSource, layout, cavities, sheetLengthMm, sheetWidthMm, loadingIncluded: loading !== null,
+    costs: { materialPurchase, scrapRevenue, materialNet, production, packaging, loading, mold, other, total: cost },
+    sale: untaxedRevenue === null ? null : {
+      untaxedRevenue, materialGrossProfit: untaxedRevenue - materialNet, netProfit: untaxedRevenue - cost,
+    },
   };
   if (Object.values(result).some(v => typeof v === 'number' && !Number.isFinite(v))) {
     throw new StationInputError('数值超出算价范围，请核对单位。');

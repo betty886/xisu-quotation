@@ -6,6 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {quoteWithFlockWeight} = require('./quote.cjs');
 const {quoteStation, StationInputError} = require('./station-quote.cjs');
+const {estimate: estimateStationLayout} = require('./station-layout.cjs');
 const root = path.resolve(__dirname, '..');
 const web = path.join(root, 'web');
 const parameterFile = path.join(root, 'assets', 'parameters.reference.json');
@@ -171,13 +172,19 @@ function createServer({configPath=parameterFile, password=process.env.QUOTE_PASS
         throw new RequestError('未配置 QUOTE_PASSWORD，不能报价。',undefined,503);
       }
       if(!authed){
-        if(req.method==='GET'&&(pathname==='/'||pathname==='/index.html'))return sendFile(res,req,publicFiles.get('/login.html'));
+        if(req.method==='GET'&&(pathname==='/'||pathname==='/index.html'||pathname==='/station'))return sendFile(res,req,publicFiles.get('/login.html'));
         throw new RequestError('请先输入内部口令。',undefined,401);
       }
       if(req.method==='GET'&&pathname==='/api/options')return sendJson(res,200,{variants:variants(loadConfig(configPath))});
-      if(req.method==='POST'&&(pathname==='/api/quote'||pathname==='/api/station-quote')){
+      if(req.method==='POST'&&(pathname==='/api/quote'||pathname==='/api/station-quote'||pathname==='/api/station-layout')){
         if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new RequestError('请提交JSON格式。',undefined,415);
         const body=await readJson(req);
+        if(pathname==='/api/station-layout'){
+          if(!body||typeof body!=='object'||Array.isArray(body))throw new RequestError('排模资料格式不正确。');
+          let layout;
+          try{layout=estimateStationLayout(body);}catch(error){throw new StationInputError(error.message);}
+          return sendJson(res,200,layout);
+        }
         if(pathname==='/api/station-quote')return sendJson(res,200,quoteStation(body));
         return sendJson(res,200,await calculate(body,loadConfig(configPath)));
       }

@@ -39,6 +39,19 @@ test('sheet modes agree with weight mode and missing pricing inputs are rejected
   assert.throws(() => quoteStation({ ...demo, boxPrice: undefined }), /同时填写/);
 });
 
+test('optional customer selling price reports material margin and net profit', () => {
+  const quote = quoteStation({ ...demo, sellingPrice: .2625 });
+  assert.equal(quote.quoteBasis, 'target');
+  assert.equal(quote.costs.total.toFixed(2), '227.20');
+  assert.equal(quote.sale.untaxedRevenue.toFixed(2), '300.00');
+  assert.equal(quote.sale.materialGrossProfit.toFixed(2), '232.80');
+  assert.equal(quote.sale.netProfit.toFixed(2), '72.80');
+  assert.equal(quote.taxedUnitPrice, quoteStation(demo).taxedUnitPrice);
+  assert.equal(quoteStation({ ...demo, targetProfit: '', sellingPrice: '' }).sale, null);
+  assert.equal(quoteStation({ ...demo, targetProfit: '' }).quoteBasis, 'break_even');
+  assert.throws(() => quoteStation({ ...demo, sellingPrice: -1 }), /客户含税单价/);
+});
+
 test('product layout adds 40 mm only to sheet width and prices the estimated sheet', () => {
   const layout = {
     productLengthMm: 140, productWidthMm: 90, gapMm: 15, edgeMm: 20,
@@ -90,11 +103,19 @@ test('the local web route uses the same calculator with the existing session gua
     method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
     body: JSON.stringify(payload),
   });
+  const layoutOrder = { productLengthMm: 140, productWidthMm: 90, gapMm: 15, edgeMm: 20,
+    layoutMethod: 'auto', maxMoldLengthMm: 860, maxMoldWidthMm: 760, preferredMoldLengthMm: 600 };
+  assert.match(await (await fetch(url + '/station')).text(), /id="login-form"/);
   assert.equal((await post('/api/station-quote', demo)).status, 401);
+  assert.equal((await post('/api/station-layout', layoutOrder)).status, 401);
   const login = await post('/api/login', { password });
   assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie').split(';')[0];
   assert.match(await (await fetch(url + '/station', { headers: { cookie } })).text(), /id="station-form"/);
+  const layout = await post('/api/station-layout', layoutOrder, cookie);
+  assert.equal(layout.status, 200);
+  assert.deepEqual(await layout.json(), estimate(layoutOrder));
+  assert.equal((await post('/api/station-layout', { ...layoutOrder, gapMm: '' }, cookie)).status, 422);
   const quote = await post('/api/station-quote', demo, cookie);
   assert.equal(quote.status, 200);
   assert.deepEqual(await quote.json(), quoteStation(demo));

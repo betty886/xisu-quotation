@@ -18,7 +18,7 @@
 
 ### 工位机报价
 
-登录本机报价台后，点击顶部「工位机报价」，按实际拉片或单件克重与成品率填写。也可以在聊天中说「用吸塑报价 Skill 算工位机」，或在 Skill 目录运行 `node scripts/station-quote.cjs 订单.json`。材料、产能和费用由使用者填写，网页和命令行使用同一计算程序。 [工位机字段与单位](skills/xisu-quotation/references/station-quotation.md)
+登录本机报价台后，切换到「工位机报价」。可以按单件尺寸排模，也可以填实际拉片，或按克重和成品率反推。常规版和大版都可以先单算模具与拉片。填完本单费用后可算保本价，填客户含税售价还可核算利润。也可以在聊天中说「用吸塑报价 Skill 算工位机」，或在 Skill 目录运行 `node scripts/station-quote.cjs 订单.json`。 [工位机字段与单位](skills/xisu-quotation/references/station-quotation.md)
 
 ### 打开报价界面
 

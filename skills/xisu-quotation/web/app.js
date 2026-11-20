@@ -3,6 +3,7 @@
   const $ = id => document.getElementById(id);
   if (location.protocol === 'file:') {
     document.querySelector('.header-actions').hidden = true;
+    document.querySelector('.workbench-nav').hidden = true;
     document.querySelector('.page-intro').hidden = true;
     document.querySelector('.quote-layout').hidden = true;
     $('local-file-help').hidden = false;
