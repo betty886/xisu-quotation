@@ -26,6 +26,7 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
 @media(min-width:901px) and (max-height:820px){.form-body{padding:12px 20px}.section-heading{padding:12px 20px}.material-field{margin-bottom:8px}.field select,.input-wrap input{height:44px}.dimensions-heading{margin-bottom:4px}.unit-control span{min-height:32px}.shape-details{margin:0 0 4px}.shape-details summary{min-height:32px;line-height:32px}.quantity-field>label,.measurement-mode,.measurement-mode span{min-height:32px}.measurement-hint{margin-top:6px;margin-bottom:4px}.mold-heading{margin-bottom:4px}.mold-heading .text-button{min-height:32px}.mold-option{min-height:60px}.mold-hint{margin-top:6px;margin-bottom:10px}.form-actions{padding-top:12px}.primary-button{min-height:44px}.page-footer{padding-top:12px}}
 @media(max-width:480px){.mold-option small{font-size:12px}.mold-icon{width:22px}.eyebrow{display:none}.page-intro{margin-bottom:16px}.page-intro h1{font-size:24px}}
 
+.station-page {--radius:4px}
 .station-page .station-topbar {
   display:grid;
   grid-template-columns:1fr auto 1fr;
@@ -35,7 +36,7 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
 }
 .station-topbar .text-button {justify-self:end;min-height:44px}
 .station-topbar .station-nav {margin:0;justify-content:center}
-.station-topbar .station-nav a {min-height:44px;font-size:14px}
+.station-topbar .station-nav a {min-height:44px;font-size:14px;border-radius:var(--radius)}
 .station-page .station-main {max-width:1200px;padding:22px 32px 28px}
 .station-title {display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 16px;margin-bottom:16px}
 .station-title h1 {font-size:clamp(25px,4vw,34px);line-height:1.2;margin:0}
@@ -48,24 +49,27 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
 .station-triple,.station-layout-options {grid-template-columns:repeat(3,minmax(0,1fr))}
 .station-page .station-grid .field {min-width:0;gap:5px;font-size:13px;font-weight:600;line-height:1.35}
 .station-page .station-grid input,.station-page .station-grid select {
-  width:100%;min-width:0;height:44px;padding:7px 9px;border:1px solid #7892a2;background:var(--paper);
+  width:100%;min-width:0;height:44px;padding:7px 9px;border:1px solid #7892a2;border-radius:var(--radius);background:var(--paper);
 }
+.station-page button {border-radius:var(--radius)}
 .station-page .station-grid select {padding-right:26px}
 .station-page .station-grid input::placeholder {font-size:13px}
 .station-wide {grid-column:1/-1}
 .station-methods {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
 .station-methods label {
-  display:flex;align-items:center;gap:8px;min-width:0;min-height:54px;padding:7px 10px;
-  border:1px solid var(--line);border-radius:8px;background:var(--canvas);cursor:pointer;
+  position:relative;display:flex;align-items:center;min-width:0;min-height:54px;padding:7px 10px;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);cursor:pointer;
   font-size:14px;font-weight:700;line-height:1.3;
 }
-.station-methods input {flex:none;width:15px;height:15px;margin:0;accent-color:var(--primary)}
-.station-methods label:has(input:checked) {border-color:var(--primary);background:#e6f3f6;color:var(--primary-dark)}
+.station-methods input {position:absolute;width:1px;height:1px;margin:0;clip-path:inset(50%);overflow:hidden}
+.station-methods label:has(input:checked) {
+  border-color:var(--primary);background:#e6f3f6;color:var(--primary-dark);box-shadow:inset 0 -2px var(--primary);
+}
 .station-methods label:has(input:focus-visible) {outline:2px solid var(--focus);outline-offset:2px}
 .station-methods small {display:block;margin-top:3px;font-size:12px;font-weight:400;color:var(--muted)}
 .station-layout-controls {
   display:grid;gap:10px;margin-bottom:12px;padding:12px;
-  border:1px solid var(--line);border-radius:8px;background:#f7fafb;
+  border:1px solid var(--line);border-radius:var(--radius);background:#f7fafb;
 }
 .station-disclosure {margin-top:4px}
 .station-disclosure summary {width:fit-content;padding:6px 2px;font-size:14px;font-weight:650;color:var(--primary-dark)}
@@ -76,7 +80,7 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
 #station-layout-status[data-error],#station-form-error[data-error] {color:var(--error)}
 .station-layout-result {
   display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,144px),1fr));gap:8px;
-  margin:0 0 12px;padding:10px;border:1px solid #c5dde5;border-radius:8px;background:#eef6f8;
+  margin:0 0 12px;padding:10px;border:1px solid #c5dde5;border-radius:var(--radius);background:#eef6f8;
 }
 .station-layout-result div {min-width:0;padding:3px 5px}
 .station-layout-result span,.station-layout-result small {display:block;font-size:12px;color:var(--muted)}
@@ -88,7 +92,7 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
 .station-price-main h2 {margin:0 0 12px;font-size:18px}
 .station-price-pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .station-price {
-  min-width:0;padding:11px 9px;background:#1b3c52;border:1px solid #33576d;border-radius:8px;
+  min-width:0;padding:11px 9px;background:#1b3c52;border:1px solid #33576d;border-radius:var(--radius);
   font-size:14px;line-height:1.35;
 }
 .station-taxed-price {background:#dff3f7;border-color:#dff3f7;color:#14394c}
@@ -130,8 +134,7 @@ dialog{border:1px solid var(--line);border-radius:16px;padding:28px;max-width:66
   .station-topbar #station-logout {grid-column:2}
   .station-card,.station-price-main {padding:12px}
   .station-methods {gap:5px}
-  .station-methods label {gap:4px;padding:6px;font-size:13px}
-  .station-methods input {width:13px;height:13px}
+  .station-methods label {padding:6px;font-size:13px}
   .station-methods small {display:none}
   .station-disclosure summary {min-height:44px;display:list-item;align-content:center}
   .station-submit .primary-button {width:100%}
