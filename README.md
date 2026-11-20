@@ -63,7 +63,7 @@ node scripts/quote.cjs scripts/order.sample.json
 node scripts/quote.cjs 订单.json 自己的参数.json
 ```
 
-界面也可使用同一个自有配置：`node scripts/web-server.cjs --open --config 自己的参数.json`。关闭后重新启动可切换配置；仅修改本地配置，不会同步到其他设备。
+界面也可使用同一个自有配置。运行 `node scripts/web-server.cjs --open --temporary-password --config 自己的参数.json`。关闭后重新启动可切换配置，修改仅保存在本机。
 
 订单采用 JSON 格式，字段和单位可参考 [订单示例](skills/xisu-quotation/assets/order.example.json)：尺寸使用厘米、厚度使用毫米、数量使用件；实际材料和颜色需与所用参数表一致。输出包含未税和含税单价、整单金额、排版及状态。示例配置和订单仅供教学，不应与默认参考配置混用。
 
