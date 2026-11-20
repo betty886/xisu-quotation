@@ -8,8 +8,8 @@
   const selected = name => form.querySelector(`input[name="${name}"]:checked`)?.value || '';
   const currentVariant = () => variants.get($('variant').value);
   const fmt = (number, digits = 2) => Number(number).toLocaleString('zh-CN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
-  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight'];
-  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', taxIncluded: 'tax-label'};
+  const numericFields = ['length', 'width', 'height', 'quantity', 'thickness', 'weight', 'purchase-weight'];
+  const apiFieldIds = {variantId: 'variant', thicknessMm: 'thickness', weightG: 'weight', weightBasis: 'flock-weight-basis', moldType: 'mold-male', length: 'length', width: 'width', height: 'height', quantity: 'quantity', shape: 'shape', taxIncluded: 'tax-label', purchaseWeightKg: 'purchase-weight'};
 
   function invalidate() {
     state.sequence++;
@@ -46,6 +46,7 @@
       taxIncluded: selected('taxMode') !== 'untax'
     };
     if (!['circle', 'hexagon'].includes(payload.shape)) payload.width = $('width').value.trim();
+    if (currentVariant()?.allowsPurchaseWeight) payload.purchaseWeightKg = $('purchase-weight').value.trim();
     if (currentVariant()?.requiresThicknessWeight) {
       if (selected('measurementMode') === 'weight') {
         payload.weightG = $('weight').value.trim();
@@ -58,11 +59,11 @@
   function validate(payload) {
     if (!state.ready) return {message: '材料列表尚未载入，请稍后重试。'};
     if (!variants.has(payload.variantId)) return {field: 'variantId', message: '请选择材质与颜色。'};
-    const labels = {length: $('length-label').textContent, width: $('width-label').textContent, height: '高度', quantity: '订购数量', thicknessMm: $('thickness-label').textContent, weightG: $('weight-label').textContent};
-    const keys = ['length', ...('width' in payload ? ['width'] : []), 'height', 'quantity', ...('thicknessMm' in payload ? ['thicknessMm'] : []), ...('weightG' in payload ? ['weightG'] : [])];
+    const labels = {length: $('length-label').textContent, width: $('width-label').textContent, height: '高度', quantity: '订购数量', thicknessMm: $('thickness-label').textContent, weightG: $('weight-label').textContent, purchaseWeightKg: '本批采购重量'};
+    const keys = ['length', ...('width' in payload ? ['width'] : []), 'height', 'quantity', ...['thicknessMm', 'weightG', 'purchaseWeightKg'].filter(field => field in payload)];
     for (const field of keys) {
       const value = payload[field];
-      if (!value && ['thicknessMm', 'weightG'].includes(field)) continue;
+      if (!value && ['thicknessMm', 'weightG', 'purchaseWeightKg'].includes(field)) continue;
       if (!value) return {field, message: `请填写${labels[field]}。`};
       const valid = /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) && Number.isFinite(Number(value));
       if (!valid || (field === 'height' ? Number(value) < 0 : Number(value) <= 0)) return {field, message: `${labels[field]}须为${field === 'height' ? '不小于 0 的数字' : '大于 0 的数字'}。`};
@@ -110,6 +111,10 @@
     if (Number.isFinite(quote.flockPricePerKg) && Number.isFinite(quote.flockDensity)) $('result-message').textContent += ` 植绒比重 ${fmt(quote.flockDensity, 6)}，材料单价 ${fmt(quote.flockPricePerKg, 4)} 元/kg。`;
     $('spec-summary').replaceChildren();
     addSummaryRow('材料', variants.get(payload.variantId).label);
+    if (quote.procurement) {
+      const p = quote.procurement;
+      addSummaryRow('采购重量与单价', `${fmt(p.weightKg)} kg（${p.weightSource === 'actual' ? '实填' : '估算'}），${p.tier}，${fmt(p.pricePerKg)} 元/kg`);
+    }
     if (Number.isFinite(quote.flockPricePerKg) && Number.isFinite(quote.flockDensity)) { addSummaryRow('植绒比重', fmt(quote.flockDensity, 6)); addSummaryRow('植绒材料单价', `${fmt(quote.flockPricePerKg, 4)} 元/kg`); }
     addSummaryRow(shapeNames[payload.shape], describeDimensions(payload));
     if (payload.weightG) addSummaryRow(payload.weightBasis === 'substrate' ? '植绒前裸片单件克重' : payload.weightBasis === 'finished' ? '植绒后成品单件克重' : '成品单件克重', `${payload.weightG} g`);
@@ -193,6 +198,7 @@
     }
   }
   function updateMeasurement() {
+    $('purchase-weight-field').hidden = !currentVariant()?.allowsPurchaseWeight;
     const variant = currentVariant();
     const cloth = variant && !variant.requiresThicknessWeight;
     const flocked = variant?.material.includes('植绒');
@@ -206,7 +212,7 @@
     $('weight-label').textContent = flocked ? '植绒单件克重' : '成品单件克重';
     $('thickness').placeholder = flocked ? '填写裸基材厚度' : '填写原片厚度';
     $('weight').placeholder = flocked ? '填写单件净重' : '填写成品单件净重';
-    $('measurement-hint').textContent = cloth ? '植布按排版面积计算，无需填写厚度和克重。产品长宽方向固定，不旋转。' : mode === 'weight' ? (flocked ? '选择称重阶段。成品克重按植绒比重估算等效厚度，会反映胶水与绒的增重；裸片克重按裸基材比重，不扣减增重。' : '填写成品单件净重，不含包装；按克重反推厚度，不归整到 5 丝。') : (flocked ? '所填厚度是裸基材厚度。植绒按材料加颜色的参考单价和比重报价，未知组合会报错。' : '厚度或克重选填；都不填时按高度估算到最近 5 丝，需复核。');
+    $('measurement-hint').textContent = cloth ? '植布按排版面积计算，无需填写厚度和克重。产品长宽方向固定，不旋转。' : mode === 'weight' ? (flocked ? '选择称重阶段。成品克重按植绒比重估算等效厚度，会反映胶水与绒的增重；裸片克重按裸基材比重，不扣减增重。' : '填写成品单件净重，不含包装；按克重反推厚度，不归整到 5 丝。') : (flocked ? '填写裸基材厚度。植绒使用所选材料和颜色的参考比重。' : '厚度或克重选填；都不填时按高度估算到最近 5 丝，需复核。');
     $('mold-hint').textContent = cloth ? '植布不选模具时按阴模做初步报价，并标为待复核。阴模总出血 1 cm，不加高度，不旋转。' : '不选时按阳模做初步报价，并标为待复核。阴模默认总出血 1 cm，不加高度。';
   }
   function updateShape() {
@@ -244,6 +250,7 @@
     const target = event.target;
     if (target.id === 'variant') {
       state.previousMaterial = currentVariant()?.material || '';
+      $('purchase-weight').value = '';
       updateMeasurement();
     }
     if (target.name === 'measurementMode') updateMeasurement();

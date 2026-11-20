@@ -19,8 +19,19 @@ const {createServer}=require('./web-server.cjs');
    await expect(p.locator('#result-message')).toContainText('按克重反推厚度：0.400 mm（40.00 丝）');await expect(p.locator('#result-message')).toBeVisible();
    await p.locator('#copy-quote').click();await expect.poll(()=>p.evaluate(()=>window.__copied)).toContain('按克重反推厚度：0.400 mm（40.00 丝）');
    await p.locator('label').filter({has:p.locator('input[name="measurementMode"][value="thickness"]')}).click();await p.locator('#thickness').fill('.8');await p.locator('#calculate').click();await expect(p.locator('#result-message')).toContainText('按本次规格计算');
+   await expect(p.locator('#purchase-weight')).toBeHidden();
+   await p.locator('#variant').selectOption({label:'PET植绒 · 彩色'});
+   await expect(p.locator('#purchase-weight')).toBeVisible();
+   await p.locator('#purchase-weight').fill('499.99');await p.locator('#calculate').click();
+   await expect(p.locator('#result-message')).toContainText('11.4254 元/kg');
+   const smallBatchPrice=await p.locator('#unit-price').textContent();
+   await p.locator('#purchase-weight').fill('1000');await p.locator('#calculate').click();
+   await expect(p.locator('#result-message')).toContainText('10.4254 元/kg');
+   await expect(p.locator('#unit-price')).not.toHaveText(smallBatchPrice);
+   await p.locator('#variant').selectOption({label:'PET · 彩色'});
+   await expect(p.locator('#purchase-weight')).toHaveValue('');
    await p.locator('#variant').selectOption({label:'植布 · 白色'});await p.locator('#calculate').click();await expect(p.locator('#copy-quote')).toBeEnabled();await p.locator('summary').filter({hasText:'规格与报价说明'}).click();await expect(p.locator('#spec-summary')).not.toContainText('厚度');
-   console.log(`PASS ${viewport.width}px 高度估算、克重反推、实测、植布、复制`);await p.close();
+   console.log(`PASS ${viewport.width}px 高度估算、克重反推、实测、彩色植绒采购档、植布、复制`);await p.close();
   }
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1});

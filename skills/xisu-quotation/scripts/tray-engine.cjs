@@ -145,7 +145,7 @@ const defaultRules={processingTiers:[]};
     const tier=processingTierForCavities(cavities,tiers);
     return tier ? tier.fee/defaultRules.processingTiers[0].fee : null;
   }
-  function calculateTray(input={},rules=defaultRules) {
+  function calculateTray(input={},rules=defaultRules,{resolvePurchasePrice}={}) {
     const r=fresh();r.unit='件';
     if (!input || typeof input !== 'object' || Array.isArray(input)) {r.errors.push('报价输入格式无效。');return r;}
     if (!rules || !Array.isArray(rules.materials) || !Array.isArray(rules.prices) || !Array.isArray(rules.quantityRules) || !rules.layout || !rules.freight) {r.errors.push('报价规则结构不完整。');return r;}
@@ -178,7 +178,7 @@ const defaultRules={processingTiers:[]};
     confirmed(material,'材料参数',r);confirmed(price,'材料与颜色价格',r);
     if (price && price.basis !== '直接使用颜色原料价') e.push('颜色价格计价方式无法识别，请检查规则。');
     const density=areaPriced?null:number(material||{},'density','主档材料比重',e,{positive:true});
-    const materialPrice=areaPriced?number(input,'clothPricePerM2','植布材料单价（元/㎡）',e,{positive:true}):number(price||{},'price','主档颜色原料价',e,{min:0});
+    let materialPrice=areaPriced?number(input,'clothPricePerM2','植布材料单价（元/㎡）',e,{positive:true}):number(price||{},'price','主档颜色原料价',e,{min:0});
     const clothProcessing=areaPriced?number(input,'clothProcessingPerSheet','植布固定加工费（元/张）',e,{min:0}):null;
     r.materialPriceUnit=areaPriced?'元/㎡':'元/kg';
     r.materialPrice=materialPrice;r.density=density;
@@ -231,8 +231,16 @@ const defaultRules={processingTiers:[]};
     r.thicknessSource=areaPriced?'area':thickness===null?'equivalent':'measured';
     r.thicknessMm=areaPriced?null:thickness===null?weight/geometry.areaCm2/density*10:thickness;
     if (!areaPriced&&thickness===null) r.warnings.push(`未填实测厚度：已按${geometry.shapeLabel}投影面积 ${geometry.areaCm2.toFixed(3)} cm²和单件克重反算估算厚度 ${r.thicknessMm.toFixed(3)} mm；该数值仅用于本次报价。`);
-    r.sheetMaterialCost=areaPriced?layout.areaCm2/10000*materialPrice:layout.areaCm2*r.thicknessMm*density*materialPrice/10000;
     r.sheetAreaM2=layout.areaCm2/10000;
+    r.theoreticalSheets=quantity/adoptedCavities/(1-reject/100);
+    r.productionSheets=Math.ceil(r.theoreticalSheets);
+    if (!areaPriced && resolvePurchasePrice) {
+      const estimatedKg=r.sheetAreaM2*r.thicknessMm*density*r.productionSheets;
+      r.procurement=resolvePurchasePrice(estimatedKg);
+      materialPrice=r.procurement.pricePerKg;
+      r.materialPrice=materialPrice;
+    }
+    r.sheetMaterialCost=areaPriced?r.sheetAreaM2*materialPrice:layout.areaCm2*r.thicknessMm*density*materialPrice/10000;
     r.processingTier=processingTier;
     r.processingTierLabel=processingTier.label;
     r.baseSheetProcessingCost=processingTier.baseFee;
@@ -241,8 +249,6 @@ const defaultRules={processingTiers:[]};
     r.processingMultiplier=processingTier.baseFee>0?processingTier.effectiveFee/processingTier.baseFee:null;
     r.sheetProcessingCost=processingTier.effectiveFee;
     r.baseUnit=(r.sheetMaterialCost+r.sheetProcessingCost)/adoptedCavities;
-    r.theoreticalSheets=quantity/adoptedCavities/(1-reject/100);
-    r.productionSheets=Math.ceil(r.theoreticalSheets);
     r.warnings.push(moldType==='female'?`阴模排版按产品外形长宽各增加总出血位 ${bleed.toFixed(3)} cm，不叠加产品高度。`:`阳模排版按产品外形长宽各增加产品高度 ${height.toFixed(3)} cm。`);
     r.warnings.push('材料和成型加工保持原公式的连续张数计价；整张生产数仅供排产参考。边料已计入片材面积，不重复加损耗。');
     r.smallOrderCount=quantity/adoptedCavities;

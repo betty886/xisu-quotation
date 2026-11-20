@@ -17,7 +17,7 @@ const staticFiles = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/mold-guide.svg', ['mold-guide.svg', 'image/svg+xml']]
 ]);
-const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape','taxIncluded']);
+const allowedFields = new Set(['variantId','length','width','height','dimensionUnit','quantity','thicknessMm','weightG','weightBasis','moldType','shape','taxIncluded','purchaseWeightKg']);
 const publicFiles = new Map([
   ['/login.js', ['login.js', 'text/javascript; charset=utf-8']],
   ['/login.html', ['login.html', 'text/html; charset=utf-8']],
@@ -37,14 +37,15 @@ function num(value, label, field, {optional=false, allowZero=false, integer=fals
 function loadConfig(file=parameterFile) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function variants(config) {
   if(!config || !Array.isArray(config.materials) || !config.cloth) throw Error('Invalid parameter file');
-  const items=config.materials.map(x=>({material:x.material,color:x.color}));
-  for(const color of ['白色','黑色','其他']) items.push({material:'植布',color});
+  const items=config.materials;
+  const cloth=['白色','黑色','其他'].map(color=>({material:'植布',color}));
   const keys=new Set();
-  return items.map(({material,color})=>{
+  return [...items,...cloth].map(({material,color,purchase_weight_surcharges_per_kg})=>{
     if(typeof material!=='string'||typeof color!=='string'||!material||!color) throw Error('Invalid material');
     const key=JSON.stringify([material,color]);if(keys.has(key)) throw Error('Duplicate material');keys.add(key);
     return {variantId:'v_'+crypto.createHash('sha256').update(key).digest('hex').slice(0,12),material,color,
-      label:material==='PET透明'?'PET透明':`${material} · ${color}`,requiresThicknessWeight:material!=='植布'};
+      label:material==='PET透明'?'PET透明':`${material} · ${color}`,requiresThicknessWeight:material!=='植布',
+      allowsPurchaseWeight:purchase_weight_surcharges_per_kg!==undefined};
   });
 }
 async function calculate(payload, config, options={}) {
@@ -64,10 +65,12 @@ async function calculate(payload, config, options={}) {
   const quantity=num(payload.quantity,'订单数量','quantity',{integer:true,max:100000000});
   const thickness=num(payload.thicknessMm,'厚度','thicknessMm',{optional:true,max:100});
   const weight=num(payload.weightG,'单件克重','weightG',{optional:true,max:1000000});
+  const purchaseWeight=selected.allowsPurchaseWeight?num(payload.purchaseWeightKg,'本批采购重量','purchaseWeightKg',{optional:true}):null;
   const taxIncluded=payload.taxIncluded !== false;
   if(selected.material.includes('植绒') && thickness===null && weight!==null && !['finished','substrate'].includes(payload.weightBasis))throw new RequestError('请选择植绒克重的称重阶段。','weightBasis');
   const order={material:selected.material,color:selected.color,shape,length_cm:l/div,width_cm:w===null?undefined:w/div,height_cm:h/div,quantity,
     ...(moldMissing?{}:{mold_type:payload.moldType}),
+    ...(purchaseWeight===null?{}:{purchase_weight_kg:purchaseWeight}),
     ...(thickness!==null?{measured_thickness_mm:thickness}:{}), ...(weight!==null?{weight_g:weight}:{}), ...(selected.material.includes('植绒')&&thickness===null&&weight!==null?{weight_basis:payload.weightBasis}:{}),tax_included:taxIncluded};
   let result;
   try { result=await quoteWithFlockWeight(order,config); } catch(e) {throw new RequestError(e.message);}
@@ -77,7 +80,9 @@ async function calculate(payload, config, options={}) {
   if(thicknessSource==='weight_estimate')notes.push(selected.material.includes('植绒')?(payload.weightBasis==='finished'?'按成品克重和参考比重估算等效厚度，仅供参考，不是裸基材厚度。':'按裸片克重和裸基材参考比重估算厚度，需实测复核。'):'按单件净重估算厚度，需复核。');
   if(thicknessSource==='height_estimate')notes.push('按产品高度估算厚度，需复核。');
   if(selected.material==='植布')notes.push('植布按面积报价，产品长宽方向固定。');
-  if(selected.material.includes('植绒'))notes.push('植绒材料按参数表的参考单价和比重报价，实际样品需复核。');
+  if(selected.material.includes('植绒'))notes.push(result.calculation.procurement
+    ? '植绒按公开成品参考价加重量档差额，采用该材料参考比重。'
+    : '植绒材料按参数表的参考单价和比重报价，实际样品需复核。');
   if(result.review_label)notes.unshift(result.review_label);
   const thicknessMm=thicknessSource==='not_required'?null:result.calculation.thicknessMm;
   if(thicknessSource!=='not_required'&&!(Number.isFinite(thicknessMm)&&thicknessMm>0))throw new RequestError('厚度计算结果无效，请核对输入。');
@@ -85,10 +90,15 @@ async function calculate(payload, config, options={}) {
   const margin=(calc.targetMargin??0)/100, passthrough=calc.passthroughTotal??0;
   const rawUntaxed=(calc.pricedCostTotal/(1-margin)+passthrough)/quantity;
   const rawTaxed=(calc.pricedCostTotal*calc.materialTaxFactor/(1-margin)+passthrough)/quantity;
+  if(calc.procurement){
+    const {weightKg,weightSource,tier,pricePerKg}=calc.procurement;
+    notes.push(`采购重量${weightSource==='actual'?'按输入':'按排版估算'} ${Number(weightKg.toFixed(4))} kg，采用「${tier}」价格，材料单价 ${pricePerKg.toFixed(2)} 元/kg。`);
+  }
   return {referenceUnitPrice:result.taxed_unit,untaxedUnitPrice:result.untaxed_unit,total:result.taxed_total,untaxedTotal:result.untaxed_total,quotedTotal:taxIncluded?result.taxed_total:result.untaxed_total,quantity,currency:'CNY',taxIncluded,thicknessSource,thicknessMm,reviewLabel:result.review_label,assumptions:result.assumptions,moldType:calc.moldType,moldDefaulted:Boolean(result.mold_defaulted),
     layout:{orientation:layout.orientation,columns:layout.columns,rows:layout.rows,theoreticalCavities:layout.cavities,adoptedCavities:adopted,cavitySource:calc.cavitySource,sheetLengthCm:layout.sheetLengthCm,sheetWidthCm:layout.sheetWidthCm,occupiedLengthCm:layout.occupiedLengthCm,occupiedWidthCm:layout.occupiedWidthCm,areaCm2:layout.areaCm2,alternatives:(calc.alternatives||[]).map(item=>({orientation:item.orientation,cavities:item.cavities,sheetLengthCm:item.sheetLengthCm,sheetWidthCm:item.sheetWidthCm,areaCm2:item.areaCm2}))},
     perSheet:{materialCost:calc.sheetMaterialCost,processingCost:calc.sheetProcessingCost,processingBase:calc.baseSheetProcessingCost,processingIncrement:calc.processingIncrement,weightKg:calc.density==null?null:layout.areaCm2*calc.thicknessMm*calc.density/10000,areaM2:calc.sheetAreaM2,pricingSheets:calc.theoreticalSheets,productionSheets:calc.productionSheets,smallOrderSheets:calc.smallOrderCount,smallOrderFee:calc.smallOrderFee},
     perPiece:{material:calc.sheetMaterialCost*calc.theoreticalSheets/quantity,processing:calc.sheetProcessingCost*calc.theoreticalSheets/quantity,smallOrder:calc.smallOrderFee/quantity,rawUntaxed,rawTaxed,untaxedUnit:result.untaxed_unit,taxedUnit:result.taxed_unit},
+    ...(calc.procurement?{procurement:calc.procurement}:{}),
     ...(selected.material.includes('植绒')?{flockPricePerKg:result.calculation.materialPrice,flockDensity:result.calculation.density}:{}),reference:true,notes,exclusions:['运费','模具费','包装费及其他特殊要求费用']};
 }
 function sendJson(res,status,body){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));}

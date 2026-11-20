@@ -27,6 +27,10 @@
           <div class="section-heading"><h2><span class="section-number">01</span> 产品规格</h2><span>按产品外尺寸填写</span></div>
           <div class="form-body">
             <div class="field material-field"><label for="variant">材质与颜色</label><select id="variant" name="variantId" required disabled><option value="">正在载入材料…</option></select></div>
+            <div class="field material-field" id="purchase-weight-field" hidden>
+              <label for="purchase-weight">本批实际采购重量（kg，选填）</label>
+              <input id="purchase-weight" name="purchaseWeightKg" type="text" inputmode="decimal" autocomplete="off" placeholder="留空按排版毛重和整张生产数估算">
+            </div>
             <div class="dimensions-heading"><label>长 × 宽 × 高</label><fieldset class="unit-control"><legend class="sr-only">尺寸单位</legend><label><input type="radio" name="dimensionUnit" value="cm" checked><span>cm</span></label><label><input type="radio" name="dimensionUnit" value="mm"><span>mm</span></label></fieldset></div>
             <div class="dimension-grid">
               <div class="field"><label for="length" id="length-label">长度</label><div class="input-wrap"><input id="length" name="length" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 17" required><span class="dimension-unit">cm</span></div></div>

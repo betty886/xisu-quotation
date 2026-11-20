@@ -33,6 +33,7 @@
       "material": "普通PVC",
       "color": "彩色",
       "price_per_kg": 8.5,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.5},
       "density_g_cm3": 1.4,
       "processing_base_per_sheet": 1.2,
       "price_date": "2026-08-08",
@@ -54,6 +55,7 @@
       "material": "PVC植绒",
       "color": "彩色",
       "price_per_kg": 11.602749326145553,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.5},
       "density_g_cm3": 1.5458333333333334
     },
     {
@@ -78,6 +80,7 @@
       "material": "PS",
       "color": "彩色",
       "price_per_kg": 9.5,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.5},
       "density_g_cm3": 1.1,
       "processing_base_per_sheet": 1,
       "price_date": "2026-10-22",
@@ -99,6 +102,7 @@
       "material": "PS植绒",
       "color": "彩色",
       "price_per_kg": 12.180200668896322,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.5},
       "density_g_cm3": 1.2458333333333333
     },
     {
@@ -123,6 +127,7 @@
       "material": "PET",
       "color": "彩色",
       "price_per_kg": 7.2,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.6},
       "density_g_cm3": 1.4,
       "processing_base_per_sheet": 1,
       "price_date": "2026-08-08",
@@ -144,6 +149,7 @@
       "material": "PET植绒",
       "color": "彩色",
       "price_per_kg": 10.425390835579515,
+      "purchase_weight_surcharges_per_kg": {"under_500": 1, "from_500": 0.6},
       "density_g_cm3": 1.5458333333333334
     },
     {
